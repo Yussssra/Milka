@@ -211,7 +211,7 @@ async function fetchMultiplePages(endpoint, pages = 2) {
 
 // Custom specialized fetch for Hashphile's favorites
 async function fetchExactFavorites() {
-  const queries = ["Rockstar", "Now You See Me", "Eternity", "About Time"];
+  const queries = ["The Substance", "Rockstar", "Now You See Me", "Eternity", "About Time"];
   const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
   const exactMatches = [];
 

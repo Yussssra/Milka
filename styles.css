@@ -790,8 +790,10 @@ body {
 }
 
 .action-col {
-  width: 100%;
-  max-width: 500px;
+  width: auto;
+  max-width: 450px;
+  flex: 0 1 auto;
+  margin-left: auto;
 }
 
 .footer-col h3 {
