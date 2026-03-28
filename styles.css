@@ -173,7 +173,7 @@ body {
   height: 48px;
   border-radius: 50%;
   background-color: transparent;
-  background-image: url('assets/cute_smiley.png');
+  background-image: url('assets/yellow_smiley.png');
   background-size: cover;
   border: 1px solid rgba(223, 255, 0, 0.2);
   cursor: pointer;
@@ -1599,3 +1599,4 @@ body {
     opacity: 0;
   }
 }
+
