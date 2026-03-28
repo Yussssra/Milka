@@ -273,38 +273,67 @@ async function loadLiveMovies() {
   }
 }
 
-/* GLOBAL SEARCH ENGINE */
+/* GLOBAL SEARCH ENGINE 2.0 */
+const searchLoader = document.getElementById("searchLoader");
+const clearSearchBtn = document.getElementById("clearSearch");
+
 async function performSearch(query) {
   if (!query) {
-    searchResultsArea.style.display = "none";
-    slidersContainer.style.display = "block";
-    heroSection.style.display = "block";
+    searchResultsArea.classList.remove("active");
+    clearSearchBtn.style.display = "none";
     return;
   }
   
-  searchResultsArea.style.display = "block";
-  slidersContainer.style.display = "none";
-  heroSection.style.display = "none";
+  searchResultsArea.classList.add("active");
+  clearSearchBtn.style.display = "block";
   searchQueryText.textContent = query;
+  searchLoader.style.display = "block";
   
   const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
   try {
     const data = await fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, { headers });
     const results = (data.results || []).map(mapBaseMovie).filter(m => m.poster_url);
-    allMovies = [...allMovies, ...results];
+    
+    // Smoothly update grid
     renderRow(searchGrid, results);
+    searchLoader.style.display = "none";
+    
+    // Add to allMovies so results are selectable
+    allMovies = [...allMovies, ...results];
   } catch (e) {
     console.error("Search failed", e);
     renderRow(searchGrid, []);
+    searchLoader.style.display = "none";
   }
 }
 
 searchInput.addEventListener("input", (e) => {
-  clearTimeout(searchDebounceTimeout);
   const q = e.target.value.trim();
+  
+  if (!q) {
+    performSearch("");
+    return;
+  }
+
+  clearTimeout(searchDebounceTimeout);
+  searchLoader.style.display = "block"; // Immediate feedback
   searchDebounceTimeout = setTimeout(() => {
     performSearch(q);
   }, 400); 
+});
+
+clearSearchBtn.addEventListener("click", () => {
+  searchInput.value = "";
+  performSearch("");
+  searchInput.focus();
+});
+
+// Close search on Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && searchResultsArea.classList.contains("active")) {
+    searchInput.value = "";
+    performSearch("");
+  }
 });
 
 // Carousel Pagination Controls (Horizontal scrolling arrows)
@@ -410,4 +439,296 @@ if (sendRecBtn) {
     window.location.href = `mailto:yusra.here77@gmail.com?subject=${subject}&body=${body}`;
   });
 }
+
+// --- Pulse Watch Party Engine 2.0 (Social Cinema) --- //
+
+let peer = null;
+let conn = null;
+let localStream = null;
+let isTyping = false;
+let typingTimeout = null;
+
+const appContainer = document.querySelector(".app-container");
+const pulseSidebar = document.getElementById("pulseSidebar");
+const openPulseBtn = document.getElementById("openPulse");
+const closePulseBtn = document.getElementById("closePulse");
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const sendChatBtn = document.getElementById("sendChat");
+const copyPulseLinkBtn = document.getElementById("copyPulseLink");
+const localVideo = document.getElementById("localVideo");
+const remoteVideo = document.getElementById("remoteVideo");
+const toggleVideoBtn = document.getElementById("toggleVideo");
+const toggleAudioBtn = document.getElementById("toggleAudio");
+const forceSyncBtn = document.getElementById("forceSync");
+const statusDot = document.getElementById("statusDot");
+const typingIndicator = document.getElementById("typingIndicator");
+const pulseIdDisplay = document.getElementById("pulseIdDisplay");
+const toastContainer = document.getElementById("toastContainer");
+
+function initPeer() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomId = urlParams.get('room') || sessionStorage.getItem('pulseRoomId');
+
+  statusDot.className = "status-dot connecting";
+  peer = new Peer();
+
+  peer.on('open', (id) => {
+    console.log('My Pulse ID: ' + id);
+    pulseIdDisplay.textContent = `ID: ${id.substring(0, 8)}...`;
+    
+    if (urlParams.get('room')) {
+      connectToPeer(urlParams.get('room'));
+    } else if (sessionStorage.getItem('pulseRoomId')) {
+      // Re-initialize as host if we had a session but no room param
+      updatePulseRoomInfo(id);
+    } else {
+      updatePulseRoomInfo(id);
+    }
+  });
+
+  peer.on('connection', (c) => {
+    conn = c;
+    setupConnection();
+    showToast("Friend joined the Pulse!");
+    statusDot.className = "status-dot connected";
+  });
+
+  peer.on('call', async (call) => {
+    if (!localStream) {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
+      } catch(e) { showToast("Camera access denied."); }
+    }
+    call.answer(localStream);
+    call.on('stream', (remoteStream) => {
+      remoteVideo.srcObject = remoteStream;
+      document.getElementById("remoteLabel").textContent = "Friend (Live)";
+    });
+  });
+
+  peer.on('error', (err) => {
+    console.error(err);
+    showToast("Pulse Error: Peer server unreachable.");
+    statusDot.className = "status-dot";
+  });
+}
+
+function connectToPeer(targetId) {
+  conn = peer.connect(targetId);
+  setupConnection();
+  startCall(targetId);
+  statusDot.className = "status-dot connecting";
+}
+
+async function startCall(targetId) {
+  try {
+    if (!localStream) {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideo.srcObject = localStream;
+    }
+    const call = peer.call(targetId, localStream);
+    call.on('stream', (remoteStream) => {
+      remoteVideo.srcObject = remoteStream;
+      document.getElementById("remoteLabel").textContent = "Friend (Live)";
+      statusDot.className = "status-dot connected";
+    });
+  } catch (err) {
+    showToast("Camera/Mic access required for video chat.");
+  }
+}
+
+function setupConnection() {
+  conn.on('open', () => {
+    statusDot.className = "status-dot connected";
+    showToast("Connected to party!");
+    addChatMessage("system", "Pulse sync active.");
+    createStardust(); // Whimsical welcome
+  });
+
+  conn.on('data', (data) => {
+    if (data.type === 'chat') {
+      addChatMessage("remote", data.message);
+    } else if (data.type === 'typing') {
+      typingIndicator.style.display = data.isTyping ? 'block' : 'none';
+    } else if (data.type === 'sync-movie') {
+      const movie = allMovies.find(m => m.id === data.movieId);
+      if (movie && movie.id !== selectedId) {
+        updateHeroSection(movie, false);
+        showToast(`Sync: Switched to ${movie.title}`);
+      }
+    }
+  });
+
+  conn.on('close', () => {
+    statusDot.className = "status-dot";
+    showToast("Friend left the Pulse.");
+  });
+}
+
+function addChatMessage(type, message) {
+  const div = document.createElement("div");
+  div.className = `msg ${type}`;
+  div.textContent = message;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showToast(text) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.innerHTML = `<span>⚡</span> ${text}`;
+  toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add("fade-out");
+    setTimeout(() => toast.remove(), 400);
+  }, 4000);
+}
+
+function updatePulseRoomInfo(id) {
+  sessionStorage.setItem('pulseRoomId', id);
+  const roomUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
+  copyPulseLinkBtn.onclick = () => {
+    navigator.clipboard.writeText(roomUrl);
+    copyPulseLinkBtn.textContent = "URL Copied!";
+    showToast("Invite link copied to clipboard.");
+    setTimeout(() => copyPulseLinkBtn.textContent = "Invite Friend", 2000);
+  };
+}
+
+// Intercept Movie Changes
+const originalUpdateHeroSection = updateHeroSection;
+updateHeroSection = function(movie, broadcast = true) {
+  originalUpdateHeroSection(movie);
+  if (broadcast && conn && conn.open) {
+    conn.send({ type: 'sync-movie', movieId: movie.id });
+  }
+};
+
+// UI Toggles
+function togglePulse(forceClose = false) {
+  const isOpen = pulseSidebar.classList.contains("open");
+  if (isOpen || forceClose) {
+    pulseSidebar.classList.remove("open");
+    appContainer.classList.remove("pulse-open");
+    openPulseBtn.classList.remove("active");
+  } else {
+    pulseSidebar.classList.add("open");
+    appContainer.classList.add("pulse-open");
+    openPulseBtn.classList.add("active");
+    if (!peer) initPeer();
+  }
+}
+
+openPulseBtn.addEventListener("click", () => togglePulse());
+closePulseBtn.addEventListener("click", () => togglePulse(true));
+
+// Chat & Typing Logic
+sendChatBtn.addEventListener("click", () => {
+  const msg = chatInput.value.trim();
+  if (msg && conn && conn.open) {
+    conn.send({ type: 'chat', message: msg });
+    addChatMessage("local", msg);
+    chatInput.value = "";
+    sendTypingStatus(false);
+  }
+});
+
+chatInput.addEventListener("input", () => {
+  sendTypingStatus(true);
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => sendTypingStatus(false), 2000);
+});
+
+function sendTypingStatus(typing) {
+  if (isTyping !== typing && conn && conn.open) {
+    isTyping = typing;
+    conn.send({ type: 'typing', isTyping: typing });
+  }
+}
+
+chatInput.addEventListener("keypress", (e) => {
+  if (e.key === 'Enter') sendChatBtn.click();
+});
+
+// Media Controls
+toggleVideoBtn.addEventListener("click", () => {
+  if (localStream) {
+    const track = localStream.getVideoTracks()[0];
+    track.enabled = !track.enabled;
+    toggleVideoBtn.textContent = track.enabled ? "Disable Camera" : "Enable Camera";
+  }
+});
+
+toggleAudioBtn.addEventListener("click", () => {
+  if (localStream) {
+    const track = localStream.getAudioTracks()[0];
+    track.enabled = !track.enabled;
+    toggleAudioBtn.textContent = track.enabled ? "Mute Mic" : "Unmute Mic";
+  }
+});
+
+forceSyncBtn.addEventListener("click", () => {
+  const movie = allMovies.find(m => m.id === selectedId);
+  if (movie && conn && conn.open) {
+    conn.send({ type: 'sync-movie', movieId: movie.id });
+    showToast("Syncing with friend...");
+  }
+});
+
+// --- Hashphile Stardust (Whimsical Glitter) ---
+function createStardust() {
+  const colors = ['#DFFF00', '#FF00E5', '#00F0FF', '#FFFFFF'];
+  const particleCount = 70;
+  
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement("div");
+    particle.className = "stardust-particle";
+    
+    // Randomize properties
+    const size = Math.random() * 5 + 2 + "px";
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const left = Math.random() * 100 + "vw";
+    const delay = Math.random() * 2 + "s";
+    const duration = Math.random() * 3 + 2 + "s";
+    
+    particle.style.width = size;
+    particle.style.height = size;
+    particle.style.backgroundColor = color;
+    particle.style.color = color;
+    particle.style.left = left;
+    particle.style.animationDelay = delay;
+    particle.style.animationDuration = duration;
+    
+    document.body.appendChild(particle);
+    
+    // Self-destruct after animation
+    particle.addEventListener("animationend", () => {
+      particle.remove();
+    });
+  }
+}
+
+// Avatar Trigger
+const avatar = document.querySelector(".profile-avatar");
+if (avatar) {
+  avatar.addEventListener("click", () => {
+    // Spark Flash
+    avatar.classList.remove("flash-active");
+    void avatar.offsetWidth; // Force reflow
+    avatar.classList.add("flash-active");
+    
+    // Trigger Stardust
+    createStardust();
+  });
+}
+
+// Boot logic
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('room')) {
+    togglePulse();
+  }
+});
 
