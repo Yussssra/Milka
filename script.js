@@ -505,19 +505,27 @@ const toastContainer = document.getElementById("toastContainer");
 
 function initPeer() {
   const urlParams = new URLSearchParams(window.location.search);
-  const roomId = urlParams.get('room') || sessionStorage.getItem('pulseRoomId');
-
+  const roomParam = urlParams.get('room');
+  const storedId = sessionStorage.getItem('pulseRoomId');
+  
+  isGuest = !!roomParam;
   statusDot.className = "status-dot connecting";
-  peer = new Peer();
+
+  // If Host and have stored ID, re-claim it. Guests should always get a fresh ID.
+  if (!isGuest && storedId) {
+    peer = new Peer(storedId);
+    console.log("Re-claiming previous Room ID:", storedId);
+  } else {
+    peer = new Peer();
+  }
 
   peer.on('open', (id) => {
     console.log('My Pulse ID: ' + id);
     pulseIdDisplay.textContent = `ID: ${id.substring(0, 8)}...`;
     
-    isGuest = !!urlParams.get('room');
-    
     if (isGuest) {
-      connectToPeer(urlParams.get('room'));
+      showToast("Connecting to Friend's Pulse...");
+      connectToPeer(roomParam);
     } else {
       updatePulseRoomInfo(id);
     }
@@ -558,7 +566,11 @@ function initPeer() {
 
   peer.on('error', (err) => {
     console.error(err);
-    showToast("Pulse Error: Peer server unreachable.");
+    if (err.type === 'peer-not-found') {
+      showToast("Social Error: Friend's Room is Offline or Expired.");
+    } else {
+      showToast("Pulse Error: Server Unreachable.");
+    }
     statusDot.className = "status-dot";
   });
 }
@@ -592,11 +604,13 @@ async function startCall(targetId) {
 
 function setupConnection() {
   conn.on('open', () => {
-    statusDot.className = "status-dot connected";
-    showToast("Connected to party!");
+    showToast("Linked to Party!");
     addChatMessage("system", "Pulse sync active.");
     createStardust(); // Celebratory welcome
     triggerSyncWave();
+    
+    // Status only turns green when data is open
+    statusDot.className = "status-dot connected";
     
     // GUARANTEED HANDSHAKE: Only the Guest initiates the video call
     if (isGuest) {
