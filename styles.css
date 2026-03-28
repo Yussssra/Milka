@@ -1747,3 +1747,35 @@ body {
   }
 }
 
+.room-id-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: 10px;
+  padding: 0 5px;
+}
+
+.emergency-reset {
+  font-size: 0.62rem;
+  color: rgba(255, 255, 255, 0.35);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.emergency-reset:hover {
+  color: #ff3e3e;
+  text-shadow: 0 0 10px rgba(255, 62, 62, 0.5);
+}
+
+#pulseIdDisplay {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--accent);
+  opacity: 0.85;
+}
+

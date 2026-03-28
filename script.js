@@ -545,13 +545,16 @@ function initPeer() {
   });
 
   peer.on('connection', (c) => {
-    if (isOccupied) {
+    // If we're already occupied by a different peer, reject
+    if (isOccupied && conn && conn.peer !== c.peer) {
       c.on('open', () => {
         c.send({ type: 'room-full' });
         setTimeout(() => c.close(), 500);
       });
       return;
     }
+    
+    // Accept connection: can be a rejoin or a fresh join
     conn = c;
     isOccupied = true;
     setupConnection();
@@ -561,6 +564,7 @@ function initPeer() {
   });
 
   peer.on('call', async (call) => {
+    document.getElementById("remoteLabel").textContent = "Negotiating...";
     if (!localStream) {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -568,13 +572,18 @@ function initPeer() {
         localVideo.onloadedmetadata = () => localVideo.play();
       } catch(e) { showToast("Camera access denied."); }
     }
-    call.answer(localStream);
-    call.on('stream', (remoteStream) => {
-      remoteVideo.srcObject = remoteStream;
-      remoteVideo.onloadedmetadata = () => remoteVideo.play();
-      document.getElementById("remoteLabel").textContent = "Friend (Live)";
-      remoteVideo.classList.add("playing");
-    });
+    
+    // Safety delay to ensure stream is warm
+    setTimeout(() => {
+      call.answer(localStream);
+      call.on('stream', (remoteStream) => {
+        remoteVideo.srcObject = remoteStream;
+        remoteVideo.onloadedmetadata = () => remoteVideo.play();
+        document.getElementById("remoteLabel").textContent = "Friend (Live)";
+        remoteVideo.classList.add("playing");
+        createStardust(); // Visceral feedback
+      });
+    }, 400);
   });
 
   peer.on('disconnected', () => {
@@ -639,13 +648,20 @@ function setupConnection() {
     // Status only turns green when data is open
     statusDot.className = "status-dot connected";
     
-    // GUARANTEED HANDSHAKE: Only the Guest initiates the video call
-    if (isGuest) {
-       console.log("Guest initiating video call to Host...");
-       startCall(conn.peer);
-    } else {
-       console.log("Host waiting for Guest video call...");
-    }
+     // GUARANTEED BILATERAL HANDSHAKE:
+     if (isGuest) {
+        console.log("Guest initiating video call to Host...");
+        startCall(conn.peer);
+     } else {
+        console.log("Host monitoring connection...");
+        // If Host doesn't see a stream in 3s, call the Guest as a fallback
+        setTimeout(() => {
+           if (!remoteVideo.classList.contains("playing") && conn && conn.open) {
+              console.log("Host initiating fallback video call to Guest...");
+              startCall(conn.peer);
+           }
+        }, 3500);
+     }
   });
 
   conn.on('close', () => {
