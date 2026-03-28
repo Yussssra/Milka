@@ -457,6 +457,7 @@ let conn = null;
 let localStream = null;
 let isTyping = false;
 let isOccupied = false;
+let isGuest = false;
 let typingTimeout = null;
 
 function triggerSyncWave() {
@@ -513,11 +514,10 @@ function initPeer() {
     console.log('My Pulse ID: ' + id);
     pulseIdDisplay.textContent = `ID: ${id.substring(0, 8)}...`;
     
-    if (urlParams.get('room')) {
+    isGuest = !!urlParams.get('room');
+    
+    if (isGuest) {
       connectToPeer(urlParams.get('room'));
-    } else if (sessionStorage.getItem('pulseRoomId')) {
-      // Re-initialize as host if we had a session but no room param
-      updatePulseRoomInfo(id);
     } else {
       updatePulseRoomInfo(id);
     }
@@ -598,9 +598,12 @@ function setupConnection() {
     createStardust(); // Celebratory welcome
     triggerSyncWave();
     
-    // Explicitly start call once data connection is solid
-    if (!peer.id.startsWith("peer-")) { // Simple initiator check
+    // GUARANTEED HANDSHAKE: Only the Guest initiates the video call
+    if (isGuest) {
+       console.log("Guest initiating video call to Host...");
        startCall(conn.peer);
+    } else {
+       console.log("Host waiting for Guest video call...");
     }
   });
 
