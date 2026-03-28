@@ -511,12 +511,25 @@ function initPeer() {
   isGuest = !!roomParam;
   statusDot.className = "status-dot connecting";
 
+  const peerOptions = {
+    debug: 2,
+    config: {
+      'iceServers': [
+        { 'urls': 'stun:stun.l.google.com:19302' },
+        { 'urls': 'stun:stun1.l.google.com:19302' },
+        { 'urls': 'stun:stun2.l.google.com:19302' },
+        { 'urls': 'stun:stun3.l.google.com:19302' },
+        { 'urls': 'stun:stun4.l.google.com:19302' }
+      ]
+    }
+  };
+
   // If Host and have stored ID, re-claim it. Guests should always get a fresh ID.
   if (!isGuest && storedId) {
-    peer = new Peer(storedId);
+    peer = new Peer(storedId, peerOptions);
     console.log("Re-claiming previous Room ID:", storedId);
   } else {
-    peer = new Peer();
+    peer = new Peer(peerOptions);
   }
 
   peer.on('open', (id) => {
@@ -564,12 +577,26 @@ function initPeer() {
     });
   });
 
+  peer.on('disconnected', () => {
+    console.log("Pulse Connection Lost. Reconnecting...");
+    peer.reconnect();
+  });
+
+  peer.on('close', () => {
+    isOccupied = false;
+    showToast("Pulse Session Ended.");
+  });
+
   peer.on('error', (err) => {
-    console.error(err);
+    console.error("Pulse Peer Error:", err.type, err);
     if (err.type === 'peer-not-found') {
-      showToast("Social Error: Friend's Room is Offline or Expired.");
+      showToast("Social Error: Finding Friend Failed. Link might be expired.");
+    } else if (err.type === 'unavailable-id') {
+      showToast("Social Error: Trying fresh Room ID...");
+      sessionStorage.removeItem('pulseRoomId');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      showToast("Pulse Error: Server Unreachable.");
+      showToast(`Pulse Error: ${err.type}`);
     }
     statusDot.className = "status-dot";
   });
@@ -619,6 +646,18 @@ function setupConnection() {
     } else {
        console.log("Host waiting for Guest video call...");
     }
+  });
+
+  conn.on('close', () => {
+    isOccupied = false;
+    statusDot.className = "status-dot connecting";
+    showToast("Friend left. Room remains open.");
+  });
+
+  conn.on('error', (err) => {
+    console.error("Connection Error:", err);
+    isOccupied = false;
+    statusDot.className = "status-dot";
   });
 
   conn.on('data', (data) => {
