@@ -188,8 +188,10 @@ body {
 /* Hero Section */
 .neon-hero {
   position: relative;
-  height: 90vh;
-  min-height: 650px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: 100px 4% 150px;
   background-size: cover;
   background-position: center 20%;
   transition: background-image 0.8s ease;
@@ -214,9 +216,7 @@ body {
 }
 
 .hero-content {
-  position: absolute;
-  top: 32%;
-  left: 4%;
+  position: relative;
   width: 45vw;
   z-index: 3;
 }
@@ -358,7 +358,7 @@ body {
 
 /* Sliders */
 .sliders-container {
-  margin-top: 5vh;
+  margin-top: -10vh;
   position: relative;
   z-index: 10;
   padding-bottom: 60px;
