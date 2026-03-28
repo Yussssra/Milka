@@ -138,7 +138,7 @@ async function fetchDeepMovieDetails(id) {
   } catch(e) { return null; }
 }
 
-async function openModalLazy(baseMovie, type = "movie") {
+async function openModalLazy(baseMovie, type = "movie", broadcast = true) {
   modalTitle.textContent = "Loading Player...";
   movieInfoTitle.textContent = baseMovie.title;
   movieInfoDescription.textContent = baseMovie.overview;
@@ -147,6 +147,11 @@ async function openModalLazy(baseMovie, type = "movie") {
   
   videoModal.classList.add("open");
   document.body.style.overflow = "hidden";
+
+  if (broadcast && conn && conn.open) {
+    conn.send({ type: 'open-player', movieId: baseMovie.id, playerType: type });
+    triggerSyncWave();
+  }
 
   const deep = await fetchDeepMovieDetails(baseMovie.id);
   
@@ -162,10 +167,15 @@ async function openModalLazy(baseMovie, type = "movie") {
   }
 }
 
-function closeVideoModal() {
+function closeVideoModal(broadcast = true) {
   videoModal.classList.remove("open");
   document.body.style.overflow = "";
   playerFrame.src = "";
+  
+  if (broadcast && conn && conn.open) {
+    conn.send({ type: 'close-player' });
+    triggerSyncWave();
+  }
 }
 
 closeModalBtn.addEventListener("click", closeVideoModal);
@@ -446,7 +456,19 @@ let peer = null;
 let conn = null;
 let localStream = null;
 let isTyping = false;
+let isOccupied = false;
 let typingTimeout = null;
+
+function triggerSyncWave() {
+  pulseSidebar.classList.add("syncing");
+  const wave = document.createElement("div");
+  wave.className = "sync-wave";
+  pulseSidebar.appendChild(wave);
+  setTimeout(() => {
+    pulseSidebar.classList.remove("syncing");
+    wave.remove();
+  }, 1200);
+}
 
 const appContainer = document.querySelector(".app-container");
 const pulseSidebar = document.getElementById("pulseSidebar");
@@ -488,9 +510,18 @@ function initPeer() {
   });
 
   peer.on('connection', (c) => {
+    if (isOccupied) {
+      c.on('open', () => {
+        c.send({ type: 'room-full' });
+        setTimeout(() => c.close(), 500);
+      });
+      return;
+    }
     conn = c;
+    isOccupied = true;
     setupConnection();
-    showToast("Friend joined the Pulse!");
+    showToast("Friend joined! Room Locked.");
+    pulseSidebar.classList.add("locked");
     statusDot.className = "status-dot connected";
   });
 
@@ -557,11 +588,28 @@ function setupConnection() {
       if (movie && movie.id !== selectedId) {
         updateHeroSection(movie, false);
         showToast(`Sync: Switched to ${movie.title}`);
+        triggerSyncWave();
       }
+    } else if (data.type === 'open-player') {
+      const movie = allMovies.find(m => m.id === data.movieId);
+      if (movie) {
+        openModalLazy(movie, data.playerType, false);
+        showToast(`Sync: Playing ${movie.title}`);
+        triggerSyncWave();
+      }
+    } else if (data.type === 'close-player') {
+      closeVideoModal(false);
+      showToast("Sync: Player closed by friend.");
+      triggerSyncWave();
+    } else if (data.type === 'room-full') {
+      showToast("Private room is already full.");
+      addChatMessage("system", "Access Denied: Room is private & full.");
     }
   });
 
   conn.on('close', () => {
+    isOccupied = false;
+    pulseSidebar.classList.remove("locked");
     statusDot.className = "status-dot";
     showToast("Friend left the Pulse.");
   });
@@ -590,10 +638,16 @@ function updatePulseRoomInfo(id) {
   sessionStorage.setItem('pulseRoomId', id);
   const roomUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
   copyPulseLinkBtn.onclick = () => {
+    if (isOccupied) {
+      showToast("Access Restricted: Session is private and locked.");
+      return;
+    }
     navigator.clipboard.writeText(roomUrl);
     copyPulseLinkBtn.textContent = "URL Copied!";
     showToast("Invite link copied to clipboard.");
-    setTimeout(() => copyPulseLinkBtn.textContent = "Invite Friend", 2000);
+    setTimeout(() => {
+      copyPulseLinkBtn.textContent = isOccupied ? "Session Locked" : "Invite Friend";
+    }, 2000);
   };
 }
 
@@ -603,6 +657,7 @@ updateHeroSection = function(movie, broadcast = true) {
   originalUpdateHeroSection(movie);
   if (broadcast && conn && conn.open) {
     conn.send({ type: 'sync-movie', movieId: movie.id });
+    triggerSyncWave();
   }
 };
 
@@ -671,9 +726,26 @@ toggleAudioBtn.addEventListener("click", () => {
 
 forceSyncBtn.addEventListener("click", () => {
   const movie = allMovies.find(m => m.id === selectedId);
+  const isModalOpen = videoModal.classList.contains("open");
+  const playerType = modalPlayerType.textContent.includes("TRAILER") ? "trailer" : "movie";
+
   if (movie && conn && conn.open) {
-    conn.send({ type: 'sync-movie', movieId: movie.id });
-    showToast("Syncing with friend...");
+    // Send full state sync
+    conn.send({ 
+      type: 'sync-movie', 
+      movieId: movie.id 
+    });
+    
+    if (isModalOpen) {
+      conn.send({ 
+        type: 'open-player', 
+        movieId: movie.id, 
+        playerType: playerType 
+      });
+    }
+
+    showToast("Pulse Signal: Force Syncing all frames...");
+    triggerSyncWave();
   }
 });
 
