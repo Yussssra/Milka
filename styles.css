@@ -1482,6 +1482,29 @@ body {
   100% { transform: translateY(-85vh) scale(1.6) rotate(-20deg); opacity: 0; }
 }
 
+.video-wrapper.remote.playing::after {
+  content: 'LIVE';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: #ff3e3e;
+  color: white;
+  font-size: 8px;
+  font-weight: 900;
+  padding: 3px 6px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+  box-shadow: 0 0 10px rgba(255, 62, 62, 0.4);
+  animation: livePulse 1.5s infinite;
+  z-index: 10;
+}
+
+@keyframes livePulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 .video-label {
   position: absolute;
   top: 10px;

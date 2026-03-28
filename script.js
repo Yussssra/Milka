@@ -544,12 +544,15 @@ function initPeer() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localVideo.srcObject = localStream;
+        localVideo.onloadedmetadata = () => localVideo.play();
       } catch(e) { showToast("Camera access denied."); }
     }
     call.answer(localStream);
     call.on('stream', (remoteStream) => {
       remoteVideo.srcObject = remoteStream;
+      remoteVideo.onloadedmetadata = () => remoteVideo.play();
       document.getElementById("remoteLabel").textContent = "Friend (Live)";
+      remoteVideo.classList.add("playing");
     });
   });
 
@@ -563,7 +566,7 @@ function initPeer() {
 function connectToPeer(targetId) {
   conn = peer.connect(targetId);
   setupConnection();
-  startCall(targetId);
+  // startCall is now handled in setupConnection -> conn.on('open')
   statusDot.className = "status-dot connecting";
 }
 
@@ -572,12 +575,15 @@ async function startCall(targetId) {
     if (!localStream) {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localVideo.srcObject = localStream;
+      localVideo.onloadedmetadata = () => localVideo.play();
     }
     const call = peer.call(targetId, localStream);
     call.on('stream', (remoteStream) => {
       remoteVideo.srcObject = remoteStream;
+      remoteVideo.onloadedmetadata = () => remoteVideo.play();
       document.getElementById("remoteLabel").textContent = "Friend (Live)";
       statusDot.className = "status-dot connected";
+      remoteVideo.classList.add("playing");
     });
   } catch (err) {
     showToast("Camera/Mic access required for video chat.");
@@ -591,6 +597,11 @@ function setupConnection() {
     addChatMessage("system", "Pulse sync active.");
     createStardust(); // Celebratory welcome
     triggerSyncWave();
+    
+    // Explicitly start call once data connection is solid
+    if (!peer.id.startsWith("peer-")) { // Simple initiator check
+       startCall(conn.peer);
+    }
   });
 
   conn.on('data', (data) => {
@@ -680,7 +691,7 @@ updateHeroSection = function(movie, broadcast = true) {
 };
 
 // UI Toggles
-function togglePulse(forceClose = false) {
+async function togglePulse(forceClose = false) {
   const isOpen = pulseSidebar.classList.contains("open");
   if (isOpen || forceClose) {
     pulseSidebar.classList.remove("open");
@@ -690,6 +701,19 @@ function togglePulse(forceClose = false) {
     pulseSidebar.classList.add("open");
     appContainer.classList.add("pulse-open");
     openPulseBtn.classList.add("active");
+    
+    // Pre-acquire camera/mic and show preview
+    if (!localStream) {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
+        localVideo.onloadedmetadata = () => localVideo.play();
+        showToast("Camera ready for Pulse.");
+      } catch(e) { 
+        showToast("Pulse: Camera access recommended for social watch.");
+      }
+    }
+    
     if (!peer) initPeer();
   }
 }
