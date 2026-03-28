@@ -470,6 +470,20 @@ function triggerSyncWave() {
   }, 1200);
 }
 
+function spawnReaction(emoji) {
+  const container = document.body;
+  const reaction = document.createElement("div");
+  reaction.className = "floating-reaction";
+  reaction.textContent = emoji;
+  
+  // Random horizontal variance
+  const randomX = Math.random() * 60 - 30;
+  reaction.style.right = `calc(440px + ${randomX}px)`;
+  
+  container.appendChild(reaction);
+  reaction.addEventListener("animationend", () => reaction.remove());
+}
+
 const appContainer = document.querySelector(".app-container");
 const pulseSidebar = document.getElementById("pulseSidebar");
 const openPulseBtn = document.getElementById("openPulse");
@@ -575,7 +589,8 @@ function setupConnection() {
     statusDot.className = "status-dot connected";
     showToast("Connected to party!");
     addChatMessage("system", "Pulse sync active.");
-    createStardust(); // Whimsical welcome
+    createStardust(); // Celebratory welcome
+    triggerSyncWave();
   });
 
   conn.on('data', (data) => {
@@ -600,6 +615,9 @@ function setupConnection() {
     } else if (data.type === 'close-player') {
       closeVideoModal(false);
       showToast("Sync: Player closed by friend.");
+      triggerSyncWave();
+    } else if (data.type === 'reaction') {
+      spawnReaction(data.emoji);
       triggerSyncWave();
     } else if (data.type === 'room-full') {
       showToast("Private room is already full.");
@@ -795,6 +813,20 @@ if (avatar) {
     createStardust();
   });
 }
+
+// Reaction Pickers
+document.querySelectorAll(".btn-reaction").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const emoji = btn.dataset.emoji;
+    if (conn && conn.open) {
+      conn.send({ type: 'reaction', emoji: emoji });
+      spawnReaction(emoji);
+      triggerSyncWave();
+    } else {
+      showToast("Connect to a Pulse to send reactions!");
+    }
+  });
+});
 
 // Boot logic
 window.addEventListener('load', () => {

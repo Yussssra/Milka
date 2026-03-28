@@ -1199,23 +1199,34 @@ body {
 }
 
 .app-container.pulse-open {
-  padding-right: 400px;
+  padding-right: 420px;
 }
 
 .pulse-sidebar {
   position: fixed;
   top: 0;
-  right: -400px;
-  width: 400px;
+  right: -420px;
+  width: 420px;
   height: 100vh;
-  background: rgba(10, 10, 10, 0.98);
-  backdrop-filter: blur(30px);
-  border-left: 1px solid rgba(223, 255, 0, 0.15);
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(40px) saturate(180%);
+  border-left: 2px solid rgba(223, 255, 0, 0.25);
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  transition: right 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-  box-shadow: -15px 0 60px rgba(0, 0, 0, 0.9);
+  transition: right 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: -20px 0 80px rgba(0, 0, 0, 0.9);
+}
+
+.pulse-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.3;
 }
 
 .pulse-sidebar.open {
@@ -1424,17 +1435,65 @@ body {
   transform: scaleX(-1);
 }
 
+/* --- Pulse 3.0: High-End Reactions --- */
+.pulse-reactions {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  margin-bottom: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  justify-content: center;
+}
+
+.btn-reaction {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 1.25rem;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-reaction:hover {
+  transform: scale(1.4) translateY(-8px);
+  background: rgba(223, 255, 0, 0.12);
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.floating-reaction {
+  position: fixed;
+  bottom: 10vh;
+  right: 440px;
+  font-size: 2.8rem;
+  pointer-events: none;
+  z-index: 9999;
+  animation: floatReaction 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  filter: drop-shadow(0 0 15px var(--accent-glow));
+}
+
+@keyframes floatReaction {
+  0% { transform: translateY(0) scale(0.4) rotate(0deg); opacity: 0; }
+  10% { transform: translateY(-60px) scale(1.3) rotate(15deg); opacity: 1; }
+  85% { opacity: 0.8; }
+  100% { transform: translateY(-85vh) scale(1.6) rotate(-20deg); opacity: 0; }
+}
+
 .video-label {
   position: absolute;
   top: 10px;
   left: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0, 0, 0, 0.75);
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  border: 1px solid rgba(223, 255, 0, 0.25);
+  color: var(--accent);
 }
 
 .pulse-chat-area {
