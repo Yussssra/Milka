@@ -1,4 +1,4 @@
 window.MILKA_CONFIG = {
-  tmdbBearerToken: "",
+  tmdbBearerToken: "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5NGMzM2ZhOGEyZjlmNjU0YjhiYjc0YTZjZmVmYjAyOSIsIm5iZiI6MTc3NDY3OTAwMy4zMDgsInN1YiI6IjY5Yzc3M2RiZjljYzM3MTI2MWM4MGEyOSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Od_vc456x_-EcxTaiI535X13fVYGDj9hobPSMNZUTY8",
   country: "IN"
 };

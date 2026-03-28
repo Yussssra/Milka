@@ -4,86 +4,37 @@ const TMDB_IMAGE = "https://image.tmdb.org/t/p";
 const FALLBACK_COUNTRY = config.country || "US";
 
 const fallbackMovies = [
-  {
-    id: 155,
-    title: "The Dark Knight",
-    overview: "Batman faces the Joker as Gotham is pushed into chaos and moral collapse.",
-    genre_names: ["Action", "Crime"],
-    vote_average: 9.0,
-    runtime: 152,
-    release_year: "2008",
-    poster_url: `${TMDB_IMAGE}/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg`,
-    backdrop_url: `${TMDB_IMAGE}/original/hqkIcbrOHL86UncnHIsHVcVmzue.jpg`,
-    trailer_url: "https://www.youtube.com/watch?v=EXeTwQWrcwY",
-    trailer_embed: "https://www.youtube.com/embed/EXeTwQWrcwY?rel=0&modestbranding=1&cc_load_policy=1&cc_lang_pref=en",
-    provider_summary: "Add a TMDB API token to load live provider availability.",
-    provider_link: "https://www.themoviedb.org/movie/155-the-dark-knight/watch"
-  },
-  {
-    id: 27205,
-    title: "Inception",
-    overview: "A skilled extractor enters layered dream worlds to plant an idea that could change everything.",
-    genre_names: ["Sci-Fi", "Thriller"],
-    vote_average: 8.8,
-    runtime: 148,
-    release_year: "2010",
-    poster_url: `${TMDB_IMAGE}/w500/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg`,
-    backdrop_url: `${TMDB_IMAGE}/original/s2bT29y0ngXxxu2IA8AOzzXTRhd.jpg`,
-    trailer_url: "https://www.youtube.com/watch?v=YoHD9XEInc0",
-    trailer_embed: "https://www.youtube.com/embed/YoHD9XEInc0?rel=0&modestbranding=1&cc_load_policy=1&cc_lang_pref=en",
-    provider_summary: "Live provider links appear after TMDB is configured.",
-    provider_link: "https://www.themoviedb.org/movie/27205-inception/watch"
-  },
-  {
-    id: 157336,
-    title: "Interstellar",
-    overview: "A team travels beyond our galaxy in search of a future for humanity as Earth begins to fail.",
-    genre_names: ["Sci-Fi", "Adventure"],
-    vote_average: 8.7,
-    runtime: 169,
-    release_year: "2014",
-    poster_url: `${TMDB_IMAGE}/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg`,
-    backdrop_url: `${TMDB_IMAGE}/original/rAiYTfKGqDCRIIqo664sY9XZIvQ.jpg`,
-    trailer_url: "https://www.youtube.com/watch?v=zSWdZVtXT7E",
-    trailer_embed: "https://www.youtube.com/embed/zSWdZVtXT7E?rel=0&modestbranding=1&cc_load_policy=1&cc_lang_pref=en",
-    provider_summary: "Live provider links appear after TMDB is configured.",
-    provider_link: "https://www.themoviedb.org/movie/157336-interstellar/watch"
-  },
-  {
-    id: 872585,
-    title: "Oppenheimer",
-    overview: "The story of J. Robert Oppenheimer and the impossible weight of building the atomic bomb.",
-    genre_names: ["Drama", "History"],
-    vote_average: 8.3,
-    runtime: 180,
-    release_year: "2023",
-    poster_url: `${TMDB_IMAGE}/w500/ptpr0kGAckfQkJeJIt8st5dglvd.jpg`,
-    backdrop_url: `${TMDB_IMAGE}/original/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg`,
-    trailer_url: "https://www.youtube.com/watch?v=uYPbbksJxIg",
-    trailer_embed: "https://www.youtube.com/embed/uYPbbksJxIg?rel=0&modestbranding=1&cc_load_policy=1&cc_lang_pref=en",
-    provider_summary: "Live provider links appear after TMDB is configured.",
-    provider_link: "https://www.themoviedb.org/movie/872585-oppenheimer/watch"
-  }
+  { id: 155, title: "The Dark Knight", vote_average: 9.0, release_year: "2008", backdrop_url: `${TMDB_IMAGE}/original/hqkIcbrOHL86UncnHIsHVcVmzue.jpg` },
+  { id: 27205, title: "Inception", vote_average: 8.8, release_year: "2010", backdrop_url: `${TMDB_IMAGE}/original/s2bT29y0ngXxxu2IA8AOzzXTRhd.jpg` }
 ];
 
-// Replicator
-let allMovies = [...fallbackMovies];
+// State
+let allMovies = [];
 let selectedId = fallbackMovies[0].id;
+let searchDebounceTimeout = null;
 
 // DOM Elements
 const navbar = document.getElementById("navbar");
 const searchInput = document.getElementById("searchInput");
+const searchResultsArea = document.getElementById("searchResultsArea");
+const searchGrid = document.getElementById("searchGrid");
+const searchQueryText = document.getElementById("searchQueryText");
+const slidersContainer = document.getElementById("slidersContainer");
 const heroSection = document.getElementById("hero");
+
 const heroTitle = document.getElementById("heroTitle");
 const heroReleaseYear = document.getElementById("heroReleaseYear");
 const heroRuntime = document.getElementById("heroRuntime");
 const heroDescription = document.getElementById("heroDescription");
 const heroGenreTag = document.getElementById("heroGenreTag");
-const heroRating = document.getElementById("heroRating");
+const heroRatingBadge = document.getElementById("heroRatingBadge");
+
+const watchMovieButton = document.getElementById("watchMovieButton");
 const watchTrailerButton = document.getElementById("watchTrailerButton");
-const moreInfoButton = document.getElementById("moreInfoButton");
 
 // Rows
+const favoritesRow = document.getElementById("favoritesRow");
+const romanceRow = document.getElementById("romanceRow");
 const popularRow = document.getElementById("popularRow");
 const actionRow = document.getElementById("actionRow");
 const scifiRow = document.getElementById("scifiRow");
@@ -93,21 +44,17 @@ const dramaRow = document.getElementById("dramaRow");
 const videoModal = document.getElementById("videoModal");
 const closeModalBtn = document.getElementById("closeModal");
 const modalBackdrop = document.getElementById("modalBackdrop");
-const trailerFrame = document.getElementById("trailerFrame");
-const trailerTitle = document.getElementById("trailerTitle");
-const trailerDescription = document.getElementById("trailerDescription");
-const providerName = document.getElementById("providerName");
-const providerSummary = document.getElementById("providerSummary");
+const playerFrame = document.getElementById("playerFrame");
+const modalPlayerType = document.getElementById("modalPlayerType");
+const modalTitle = document.getElementById("modalTitle");
+const movieInfoTitle = document.getElementById("movieInfoTitle");
+const movieInfoDescription = document.getElementById("movieInfoDescription");
 const watchProviderButton = document.getElementById("watchProviderButton");
-const openTrailerLink = document.getElementById("openTrailerLink");
 
-// Navbar Scroll Effect
+// Scroll FX
 window.addEventListener("scroll", () => {
-  if (window.scrollY > 50) {
-    navbar.classList.add("scrolled");
-  } else {
-    navbar.classList.remove("scrolled");
-  }
+  if (window.scrollY > 50) navbar.classList.add("scrolled");
+  else navbar.classList.remove("scrolled");
 });
 
 function formatRuntime(runtime) {
@@ -123,7 +70,7 @@ function createMovieCard(movie) {
       <div class="movie-poster" style="background-image:url('${movie.backdrop_url || movie.poster_url}')"></div>
       <div class="movie-copy">
         <h3>${movie.title}</h3>
-        <p class="movie-meta">${movie.genre_names[0] || ""} • ${movie.release_year}</p>
+        <p class="movie-meta">${movie.release_year || "Unknown"}</p>
       </div>
     </div>
   `;
@@ -131,22 +78,24 @@ function createMovieCard(movie) {
 
 function renderRow(container, movies) {
   if (!container) return;
-  if (!movies.length) {
+  if (!movies || !movies.length) {
     container.innerHTML = `<div style="color:#666; padding:1vw;">No movies found</div>`;
     return;
   }
   container.innerHTML = movies.map(m => createMovieCard(m)).join("");
 }
 
-function renderMovies() {
-  const actionMovies = allMovies.filter(movie => movie.genre_names.includes("Action") || movie.genre_names.includes("Thriller"));
-  const scifiMovies = allMovies.filter(movie => movie.genre_names.includes("Sci-Fi") || movie.genre_names.includes("Science Fiction"));
-  const dramaMovies = allMovies.filter(movie => movie.genre_names.includes("Drama"));
-
-  renderRow(popularRow, allMovies.slice(0, 10));
-  renderRow(actionRow, actionMovies.length ? actionMovies : allMovies.slice(0, 8));
-  renderRow(scifiRow, scifiMovies.length ? scifiMovies : allMovies.slice(2, 10));
-  renderRow(dramaRow, dramaMovies.length ? dramaMovies : allMovies.slice(1, 9));
+// Map Base Movie Model
+function mapBaseMovie(m) {
+  return {
+    id: m.id,
+    title: m.title || m.name,
+    overview: m.overview,
+    vote_average: m.vote_average || 0,
+    release_year: (m.release_date || m.first_air_date || "").slice(0, 4),
+    poster_url: m.poster_path ? `${TMDB_IMAGE}/w500${m.poster_path}` : "",
+    backdrop_url: m.backdrop_path ? `${TMDB_IMAGE}/original${m.backdrop_path}` : ""
+  };
 }
 
 function updateHeroSection(movie) {
@@ -155,125 +104,126 @@ function updateHeroSection(movie) {
   
   heroTitle.textContent = movie.title;
   heroReleaseYear.textContent = movie.release_year;
-  heroRuntime.textContent = formatRuntime(movie.runtime);
-  heroDescription.textContent = movie.overview;
-  heroRating.textContent = movie.vote_average >= 7 ? "98% Match" : "80% Match";
-  heroGenreTag.textContent = movie.genre_names.join(" • ");
+  heroDescription.textContent = movie.overview || "No description available.";
   
-  // Set hero backdrop seamlessly
+  const ratingMatch = movie.vote_average >= 7 ? "High Match" : "Match";
+  heroRatingBadge.textContent = `${(movie.vote_average * 10).toFixed(0)}% ${ratingMatch}`;
+  
   heroSection.style.backgroundImage = `url("${movie.backdrop_url}")`;
+  
+  heroRuntime.textContent = "Loading...";
+  heroGenreTag.textContent = "Loading...";
+  
+  fetchDeepMovieDetails(movie.id).then(detailed => {
+    if (detailed) {
+      heroRuntime.textContent = formatRuntime(detailed.runtime);
+      heroGenreTag.textContent = detailed.genre_names.join(" • ");
+    }
+  });
 }
 
-function openModal(movie) {
-  trailerTitle.textContent = movie.title;
-  trailerDescription.textContent = movie.overview;
-  trailerFrame.src = movie.trailer_embed || "about:blank";
-  
-  providerName.textContent = movie.provider_name || "Available Now";
-  providerSummary.textContent = movie.provider_summary || "See TMDb for links.";
-  
-  watchProviderButton.href = movie.provider_link || "#";
-  openTrailerLink.href = movie.trailer_url || "#";
+async function fetchDeepMovieDetails(id) {
+  if (!config.tmdbBearerToken) return null;
+  const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
+  try {
+    const details = await fetchJson(`${TMDB_BASE}/movie/${id}?append_to_response=videos&language=en-US`, { headers });
+    const videos = details.videos?.results || [];
+    const official = videos.find((v) => v.site === "YouTube" && v.type === "Trailer" && v.official) || videos.find((v) => v.site === "YouTube" && v.type === "Trailer");
+    
+    return {
+      runtime: details.runtime,
+      genre_names: (details.genres || []).map(g => g.name),
+      trailer_embed: official ? `https://www.youtube.com/embed/${official.key}?autoplay=1&rel=0` : "about:blank"
+    };
+  } catch(e) { return null; }
+}
 
+async function openModalLazy(baseMovie, type = "movie") {
+  modalTitle.textContent = "Loading Player...";
+  movieInfoTitle.textContent = baseMovie.title;
+  movieInfoDescription.textContent = baseMovie.overview;
+  playerFrame.src = ""; // Clear
+  watchProviderButton.href = `https://www.themoviedb.org/movie/${baseMovie.id}`;
+  
   videoModal.classList.add("open");
   document.body.style.overflow = "hidden";
+
+  const deep = await fetchDeepMovieDetails(baseMovie.id);
+  
+  modalTitle.textContent = "Now Playing";
+  if (type === "movie") {
+    modalPlayerType.className = "pill-badge type-movie";
+    modalPlayerType.textContent = "FULL MOVIE";
+    playerFrame.src = `https://www.vidking.net/embed/movie/${baseMovie.id}?color=DFFF00&autoPlay=true`;
+  } else {
+    modalPlayerType.className = "pill-badge type-trailer";
+    modalPlayerType.textContent = "TRAILER";
+    playerFrame.src = deep ? deep.trailer_embed : "about:blank";
+  }
 }
 
 function closeVideoModal() {
   videoModal.classList.remove("open");
   document.body.style.overflow = "";
-  // Stop video playback safely
-  const currentSrc = trailerFrame.src;
-  trailerFrame.src = "";
-  setTimeout(() => { trailerFrame.src = currentSrc; }, 200);
+  playerFrame.src = "";
 }
 
 closeModalBtn.addEventListener("click", closeVideoModal);
 modalBackdrop.addEventListener("click", closeVideoModal);
 
-// Hero button listeners
-watchTrailerButton.addEventListener("click", () => {
+watchMovieButton.addEventListener("click", () => {
   const m = allMovies.find(v => v.id === selectedId);
-  if (m) openModal(m);
+  if (m) openModalLazy(m, "movie");
 });
 
-moreInfoButton.addEventListener("click", () => {
+watchTrailerButton.addEventListener("click", () => {
   const m = allMovies.find(v => v.id === selectedId);
-  if (m) openModal(m);
+  if (m) openModalLazy(m, "trailer");
 });
 
 document.addEventListener("click", (event) => {
   const target = event.target.closest(".movie-card");
   if (!target) return;
-  
   const mId = Number(target.dataset.select);
   const movie = allMovies.find(v => v.id === mId);
-  if (movie) openModal(movie);
+  if (movie) openModalLazy(movie, "movie");
 });
 
-/* TMDB API INTEGRATION */
-
-function findOfficialTrailer(videos) {
-  const official = videos.find((video) => video.site === "YouTube" && video.type === "Trailer" && video.official);
-  const fallback = videos.find((video) => video.site === "YouTube" && video.type === "Trailer");
-  return official || fallback || null;
-}
-
-function createTrailerEmbed(keyOrUrl) {
-  if (!keyOrUrl) return "about:blank";
-  if (keyOrUrl.startsWith("http")) return keyOrUrl;
-  return `https://www.youtube.com/embed/${keyOrUrl}?autoplay=1&rel=0&modestbranding=1&cc_load_policy=1&cc_lang_pref=en`;
-}
-
-function buildProviderSummary(providerData, region) {
-  const result = providerData?.results?.[region] || providerData?.results?.US;
-  if (!result) {
-    return {
-      providerLink: "",
-      providerName: "Legal watch links",
-      providerSummary: "No provider data returned for this region."
-    };
-  }
-  const groups = ["flatrate", "rent", "buy", "ads"]
-    .flatMap((key) => (result[key] || []).map((p) => p.provider_name));
-  const unique = [...new Set(groups)].slice(0, 4);
-
-  return {
-    providerLink: result.link || "",
-    providerName: unique[0] || "Legal watch links",
-    providerSummary: unique.length ? `Available via ${unique.join(", ")}.` : "Available now."
-  };
-}
-
-function mapMovieDetails(movie, genresById, details, providerData) {
-  const videos = details?.videos?.results || [];
-  const trailer = findOfficialTrailer(videos);
-  const genreNames = (movie.genre_ids || []).map((id) => genresById.get(id)).filter(Boolean);
-  const providers = buildProviderSummary(providerData, FALLBACK_COUNTRY);
-  const releaseDate = movie.release_date || details?.release_date || "";
-
-  return {
-    id: movie.id,
-    title: movie.title,
-    overview: movie.overview || "Overview unavailable.",
-    genre_names: genreNames,
-    vote_average: movie.vote_average || details?.vote_average || 0,
-    runtime: details?.runtime || 0,
-    release_year: releaseDate ? releaseDate.slice(0, 4) : "Unknown",
-    poster_url: movie.poster_path ? `${TMDB_IMAGE}/w500${movie.poster_path}` : "",
-    backdrop_url: movie.backdrop_path ? `${TMDB_IMAGE}/original${movie.backdrop_path}` : "",
-    trailer_url: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : "",
-    trailer_embed: trailer ? createTrailerEmbed(trailer.key) : "about:blank",
-    provider_link: providers.providerLink,
-    provider_name: providers.providerName,
-    provider_summary: providers.providerSummary
-  };
-}
-
+/* TMDB MASSIVE API FETCHING */
 async function fetchJson(url, init) {
   const response = await fetch(url, init);
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json();
+}
+
+async function fetchMultiplePages(endpoint, pages = 2) {
+  const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
+  const separator = endpoint.includes("?") ? "&" : "?";
+  let merged = [];
+  try {
+    for (let i = 1; i <= pages; i++) {
+      const data = await fetchJson(`${TMDB_BASE}${endpoint}${separator}page=${i}&language=en-US`, { headers });
+      merged = [...merged, ...(data.results || [])];
+    }
+  } catch(e) { console.error("Failed fetching multi page", e); }
+  return merged.map(mapBaseMovie).filter(m => m.poster_url && m.backdrop_url);
+}
+
+// Custom specialized fetch for Hashphile's favorites
+async function fetchExactFavorites() {
+  const queries = ["Rockstar", "Now You See Me", "Eternity", "About Time"];
+  const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
+  const exactMatches = [];
+
+  for (const q of queries) {
+    try {
+      const data = await fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(q)}&language=en-US&page=1`, { headers });
+      if (data.results && data.results.length > 0) {
+        exactMatches.push(mapBaseMovie(data.results[0]));
+      }
+    } catch (e) { console.error("Error fetching favorite", q, e); }
+  }
+  return exactMatches.filter(m => m.poster_url);
 }
 
 async function loadLiveMovies() {
@@ -282,64 +232,182 @@ async function loadLiveMovies() {
   const banner = document.getElementById("tmdbBanner");
 
   if (!config.tmdbBearerToken) {
-    statusEl.textContent = "Fallback Demo Mode";
-    msgEl.textContent = "Add your TMDB bearer token in config.js for 1000s of titles.";
-    banner.style.backgroundColor = "rgba(109, 109, 110, 0.4)";
-    renderMovies();
+    statusEl.textContent = "Fallback Mode";
+    msgEl.textContent = "API key missing. Load TMDB token to stream massive databases.";
+    allMovies = fallbackMovies;
     updateHeroSection(allMovies[0]);
     return;
   }
 
-  statusEl.textContent = "Loading TMDB catalog...";
-  msgEl.textContent = "Fetching Netflix-like catalog rows...";
-
-  const headers = {
-    Authorization: `Bearer ${config.tmdbBearerToken}`,
-    accept: "application/json"
-  };
+  statusEl.textContent = "Loading Massive Data...";
+  msgEl.textContent = "Booting up Custom Hashphile Environment...";
 
   try {
-    const [popular, genresResponse] = await Promise.all([
-      fetchJson(`${TMDB_BASE}/trending/movie/week?language=en-US`, { headers }),
-      fetchJson(`${TMDB_BASE}/genre/movie/list?language=en-US`, { headers })
+    const langFilter = "&with_original_language=hi|en|ml|ta|te";
+    const [favorites, romance, trending, action, scifi, drama] = await Promise.all([
+      fetchExactFavorites(),
+      fetchMultiplePages(`/discover/movie?with_genres=10749${langFilter}`, 4), // Romance
+      fetchMultiplePages(`/trending/movie/week`, 4), // Trending globally
+      fetchMultiplePages(`/discover/movie?with_genres=28,53${langFilter}`, 4),
+      fetchMultiplePages(`/discover/movie?with_genres=878${langFilter}`, 4),
+      fetchMultiplePages(`/discover/movie?with_genres=18${langFilter}`, 4)
     ]);
 
-    const genresById = new Map((genresResponse.genres || []).map((g) => [g.id, g.name]));
-    const candidates = (popular.results || []).slice(0, 16);
-
-    const enriched = await Promise.all(candidates.map(async (movie) => {
-      const [details, providers] = await Promise.all([
-        fetchJson(`${TMDB_BASE}/movie/${movie.id}?append_to_response=videos&language=en-US`, { headers }),
-        fetchJson(`${TMDB_BASE}/movie/${movie.id}/watch/providers`, { headers })
-      ]);
-      return mapMovieDetails(movie, genresById, details, providers);
-    }));
-
-    allMovies = enriched.filter((m) => m.poster_url && m.backdrop_url);
-    if(allMovies.length > 0) {
-      banner.style.display = 'none'; // hide TMDB warning if success
-    }
+    allMovies = [...favorites, ...romance, ...trending, ...action, ...scifi, ...drama];
     
-    renderMovies();
-    updateHeroSection(allMovies[0]);
+    renderRow(favoritesRow, favorites);
+    renderRow(romanceRow, romance);
+    renderRow(popularRow, trending);
+    renderRow(actionRow, action);
+    renderRow(scifiRow, scifi);
+    renderRow(dramaRow, drama);
+    
+    // Set Hero to the absolute latest trending movie globally!
+    if(trending.length > 0) {
+      banner.style.display = 'none';
+      updateHeroSection(trending[0]);
+    }
   } catch(e) {
     console.error(e);
-    statusEl.textContent = "TMDB Load Error";
-    msgEl.textContent = "Falling back to sample fallback movies. Please check your API key.";
-    renderMovies();
-    updateHeroSection(allMovies[0]);
+    statusEl.textContent = "Data Pipeline Error";
   }
 }
 
-// Search Filter (optional simple local filter)
-searchInput.addEventListener("input", () => {
-  const query = searchInput.value.toLowerCase().trim();
-  const cards = document.querySelectorAll(".movie-card");
-  cards.forEach(card => {
-    const title = card.querySelector("h3").textContent.toLowerCase();
-    card.style.display = title.includes(query) ? "block" : "none";
+/* GLOBAL SEARCH ENGINE */
+async function performSearch(query) {
+  if (!query) {
+    searchResultsArea.style.display = "none";
+    slidersContainer.style.display = "block";
+    heroSection.style.display = "block";
+    return;
+  }
+  
+  searchResultsArea.style.display = "block";
+  slidersContainer.style.display = "none";
+  heroSection.style.display = "none";
+  searchQueryText.textContent = query;
+  
+  const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
+  try {
+    const data = await fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, { headers });
+    const results = (data.results || []).map(mapBaseMovie).filter(m => m.poster_url);
+    allMovies = [...allMovies, ...results];
+    renderRow(searchGrid, results);
+  } catch (e) {
+    console.error("Search failed", e);
+    renderRow(searchGrid, []);
+  }
+}
+
+searchInput.addEventListener("input", (e) => {
+  clearTimeout(searchDebounceTimeout);
+  const q = e.target.value.trim();
+  searchDebounceTimeout = setTimeout(() => {
+    performSearch(q);
+  }, 400); 
+});
+
+// Carousel Pagination Controls (Horizontal scrolling arrows)
+document.querySelectorAll('.scroll-btn.right-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const carousel = e.target.parentElement.querySelector('.poster-carousel');
+    if (carousel) carousel.scrollBy({ left: 850, behavior: 'smooth' });
   });
 });
 
-// Initialization
+document.querySelectorAll('.scroll-btn.left-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const carousel = e.target.parentElement.querySelector('.poster-carousel');
+    if (carousel) carousel.scrollBy({ left: -850, behavior: 'smooth' });
+  });
+});
+
 loadLiveMovies();
+
+// --- Advanced Animations Engine --- //
+const revealObserver = new IntersectionObserver((entries, observer) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('active');
+      observer.unobserve(entry.target); 
+    }
+  });
+}, { root: null, rootMargin: '0px', threshold: 0.15 });
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+}, 1500);
+
+let lastScrollY = window.scrollY;
+let isTicking = false;
+
+window.addEventListener('scroll', () => {
+  lastScrollY = window.scrollY;
+  if (!isTicking) {
+    window.requestAnimationFrame(() => {
+      if (heroSection && heroSection.style.display !== "none") {
+        heroSection.style.backgroundPositionY = `calc(20% + ${lastScrollY * 0.4}px)`;
+      }
+      isTicking = false;
+    });
+    isTicking = true;
+  }
+});
+
+// Parallax Footer Dynamic Margin
+function setFooterMargin() {
+  const footer = document.getElementById('siteFooter');
+  const appContainer = document.querySelector('.app-container');
+  if (footer && appContainer) {
+    appContainer.style.marginBottom = `${footer.offsetHeight}px`;
+  }
+}
+
+window.addEventListener('resize', setFooterMargin);
+window.addEventListener('load', setFooterMargin);
+setTimeout(setFooterMargin, 1000); // Safety check after TMDB paints
+
+// Floating Back-To-Top Interaction
+const backToTopBtn = document.getElementById('backToTop');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 1200) {
+    backToTopBtn.classList.add('visible');
+  } else {
+    backToTopBtn.classList.remove('visible');
+  }
+});
+
+backToTopBtn.addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Recommendation Form Logic
+const sendRecBtn = document.getElementById('sendRec');
+if (sendRecBtn) {
+  sendRecBtn.addEventListener('click', () => {
+    const movie = document.getElementById('recMovie').value;
+    const rating = document.getElementById('recRating').value;
+    const desc = document.getElementById('recDesc').value;
+    const points = document.getElementById('recPoints').value;
+
+    if (!movie || !rating) {
+      alert("Please enter at least the movie name and a rating!");
+      return;
+    }
+
+    const subject = encodeURIComponent(`Recommendation: ${movie}`);
+    const body = encodeURIComponent(
+      `Movie: ${movie}\n` +
+      `Rating: ${rating}/10\n\n` +
+      `Description:\n${desc}\n\n` +
+      `Rewatch Points:\n${points}`
+    );
+
+    window.location.href = `mailto:yusra.here77@gmail.com?subject=${subject}&body=${body}`;
+  });
+}
+

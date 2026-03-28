@@ -3,142 +3,205 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>milka - Watch TV Shows Online, Watch Movies Online</title>
+  <title>Hashphile - Watch Free Movies</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app-container">
-    <header class="netflix-nav" id="navbar">
+    <header class="neon-nav" id="navbar">
       <div class="nav-left">
         <a class="brand-logo" href="#hero">
-          milka
+          HASHPHILE
         </a>
         <nav class="primary-nav">
-          <a href="#hero" class="active">Home</a>
-          <a href="#hero">TV Shows</a>
-          <a href="#hero">Movies</a>
-          <a href="#hero">New & Popular</a>
-          <a href="#hero">My List</a>
+          <a href="#hero" class="active">Discover</a>
+          <a href="#nav-favorites">Favorites</a>
+          <a href="#nav-romance">Watch with Y</a>
+          <a href="#nav-trending">Trending</a>
         </nav>
       </div>
 
       <div class="nav-right">
         <div class="search-container">
           <span class="search-icon">&#9906;</span>
-          <input id="searchInput" type="search" placeholder="Titles, people, genres">
+          <input id="searchInput" type="search" placeholder="Search the globe...">
         </div>
         <div class="profile-avatar"></div>
       </div>
     </header>
 
     <main>
-      <section class="netflix-hero" id="hero">
+      <section class="neon-hero" id="hero">
         <div class="hero-vignette"></div>
         <div class="hero-content">
+          <div class="hero-badge" id="heroRatingBadge">98% Match</div>
           <div class="hero-logo-box">
-             <h1 id="heroTitle">milka</h1>
+             <h1 id="heroTitle">LOADING...</h1>
           </div>
           <div class="hero-meta">
-            <span id="heroRating" class="match-score">98% Match</span>
             <span id="heroReleaseYear">2026</span>
-            <span id="heroRuntime" class="maturity-rating">Runtime</span>
-            <span class="hd-badge">HD</span>
+            <span id="heroRuntime" class="pill-badge">Runtime</span>
+            <span class="hd-badge">4K ULTRA HDR</span>
           </div>
           <p class="hero-synopsis" id="heroDescription">
-            Browse real films with live metadata, official trailers, and legal watch availability. Connect your TMDB API token to load thousands of titles.
+            Waiting for real TMDB data...
           </p>
+          <div class="hero-genres" id="heroGenreTag">Genres</div>
+          
           <div class="hero-buttons">
-            <button class="btn-play" id="watchTrailerButton" type="button">
+            <button class="btn-play-movie" id="watchMovieButton" type="button">
               <svg viewBox="0 0 24 24" fill="currentColor" class="play-icon"><path d="M8 5v14l11-7z"/></svg>
-              <span>Play</span>
+              <span>Watch Full Movie</span>
             </button>
-            <button class="btn-more-info" id="moreInfoButton" type="button">
+            <button class="btn-trailer" id="watchTrailerButton" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="info-icon"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
-              <span>More Info</span>
+              <span>Play Trailer</span>
             </button>
           </div>
-          <div class="hero-genres" id="heroGenreTag">Genres</div>
         </div>
       </section>
 
-      <section class="sliders-container">
-        <!-- TMDB Status Banner -->
-        <div class="tmdb-status-banner" id="tmdbBanner">
-          <strong id="tmdbStatus">Checking API configuration</strong>
-          <span id="tmdbMessage">Add your TMDB bearer token in config.js to load live movies.</span>
+      <!-- Global Search Results Area (Hidden by Default) -->
+      <section class="search-results-section" id="searchResultsArea" style="display: none;">
+        <h2 class="row-header">Results for: <span id="searchQueryText" style="color:var(--accent)"></span></h2>
+        <div class="search-grid" id="searchGrid"></div>
+      </section>
+
+      <!-- Normal Layout Container -->
+      <section class="sliders-container" id="slidersContainer">
+        <div class="tmdb-status-banner reveal" id="tmdbBanner">
+          <strong id="tmdbStatus">Checking API config</strong>
+          <span id="tmdbMessage">Create config.js with your TMDB bearer token to replace fallback.</span>
         </div>
 
-        <div class="slider-row-wrapper">
-          <h2 class="row-header">Trending Now</h2>
+        <!-- HASHPHILE CUSTOM ROW -->
+        <div class="slider-row-wrapper reveal" id="nav-favorites">
+          <h2 class="row-header">Hashphile's Favorites</h2>
           <div class="slider-container">
+            <button class="scroll-btn left-btn">&#8249;</button>
+            <div class="poster-carousel" id="favoritesRow"></div>
+            <button class="scroll-btn right-btn">&#8250;</button>
+          </div>
+        </div>
+
+        <!-- WATCH IT WITH Y ROMANCE ROW -->
+        <div class="slider-row-wrapper reveal" id="nav-romance">
+          <h2 class="row-header">Movies to watch with Y</h2>
+          <div class="slider-container">
+            <button class="scroll-btn left-btn">&#8249;</button>
+            <div class="poster-carousel" id="romanceRow"></div>
+            <button class="scroll-btn right-btn">&#8250;</button>
+          </div>
+        </div>
+
+        <div class="slider-row-wrapper reveal" id="nav-trending">
+          <h2 class="row-header">Trending the Globe</h2>
+          <div class="slider-container">
+            <button class="scroll-btn left-btn">&#8249;</button>
             <div class="poster-carousel" id="popularRow"></div>
+            <button class="scroll-btn right-btn">&#8250;</button>
           </div>
         </div>
 
-        <div class="slider-row-wrapper">
-          <h2 class="row-header">Action Thrillers</h2>
+        <div class="slider-row-wrapper reveal" id="nav-action">
+          <h2 class="row-header">Action / Thrill</h2>
           <div class="slider-container">
+            <button class="scroll-btn left-btn">&#8249;</button>
             <div class="poster-carousel" id="actionRow"></div>
+            <button class="scroll-btn right-btn">&#8250;</button>
           </div>
         </div>
 
-        <div class="slider-row-wrapper">
-          <h2 class="row-header">Sci-Fi Adventures</h2>
+        <div class="slider-row-wrapper reveal" id="nav-scifi">
+          <h2 class="row-header">Sci-Fi Dystopia</h2>
           <div class="slider-container">
+            <button class="scroll-btn left-btn">&#8249;</button>
             <div class="poster-carousel" id="scifiRow"></div>
+            <button class="scroll-btn right-btn">&#8250;</button>
           </div>
         </div>
 
-        <div class="slider-row-wrapper">
-          <h2 class="row-header">Critically Acclaimed Dramas</h2>
+        <div class="slider-row-wrapper reveal" id="nav-drama">
+          <h2 class="row-header">Acclaimed Dramas</h2>
           <div class="slider-container">
+            <button class="scroll-btn left-btn">&#8249;</button>
             <div class="poster-carousel" id="dramaRow"></div>
+            <button class="scroll-btn right-btn">&#8250;</button>
           </div>
         </div>
       </section>
       
       <!-- Video Player Modal Overlay -->
-      <div class="video-modal" id="videoModal">
-        <div class="video-modal-backdrop" id="modalBackdrop"></div>
-        <div class="video-modal-content">
-          <button class="close-modal" id="closeModal">&times;</button>
+      <div class="neon-modal" id="videoModal">
+        <div class="modal-backdrop" id="modalBackdrop"></div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="modal-title-box">
+              <h2 id="modalTitle">Now Playing</h2>
+              <span id="modalPlayerType" class="pill-badge type-movie">FULL MOVIE</span>
+            </div>
+            <button class="close-modal" id="closeModal">&times;</button>
+          </div>
           <div class="trailer-wrap">
             <iframe
-              id="trailerFrame"
-              title="Official movie trailer"
+              id="playerFrame"
+              title="Movie Player"
               loading="lazy"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowfullscreen
             ></iframe>
           </div>
-          <div class="modal-info">
+          <div class="modal-info" id="modalInfoArea">
+             <!-- Dynamically filled during lazy load or shows loading spinner -->
              <div class="modal-info-left">
-               <h2 id="trailerTitle">Loading Trailer</h2>
-               <div class="hero-meta" style="margin-top: 8px;">
-                 <span class="match-score">New</span>
-                 <span class="hd-badge">4K</span>
-                 <span class="maturity-rating">Subtitles</span>
-               </div>
-               <p id="trailerDescription" style="margin-top: 15px; font-size: 1.1rem; line-height: 1.6;"></p>
+               <h3 id="movieInfoTitle">Loading Deep Data...</h3>
+               <p id="movieInfoDescription" class="modal-desc">Fetching details from TMDB.</p>
              </div>
              <div class="modal-info-right">
-               <div class="provider-panel">
-                 <strong id="providerName">Legal watch links</strong>
-                 <p id="providerSummary" style="margin: 8px 0; font-size: 0.9rem; color: #a3a3a3;"></p>
-                 <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-                   <a class="btn-play" style="padding: 10px 16px; font-size: 1rem; text-decoration: none; display: inline-flex;" id="openTrailerLink" href="#" target="_blank" rel="noreferrer">Open in YouTube</a>
-                   <a class="btn-more-info" style="padding: 10px 16px; font-size: 1rem; text-decoration: none; display: inline-flex;" id="watchProviderButton" href="#" target="_blank" rel="noreferrer">Where to Watch</a>
-                 </div>
-               </div>
+                <span class="warning-text">Subtitles are built into the player. Quality servers can be switched inside the frame.</span>
+                <a class="btn-trailer" style="display:inline-flex; border: 1px solid #DFFF00; margin-top:10px" id="watchProviderButton" href="#" target="_blank" rel="noreferrer">Backup Links</a>
              </div>
           </div>
         </div>
       </div>
     </main>
   </div>
+
+  <!-- Parallax Footer fixed behind the app-container -->
+  <footer class="parallax-footer" id="siteFooter">
+    <div class="footer-hero-layer"></div>
+    <div class="marquee-wrapper">
+      <div class="marquee-content">
+        <span>HASHPHILE OVERDRIVE ✦ INFINITE STREAMING ✦ </span>
+        <span>HASHPHILE OVERDRIVE ✦ INFINITE STREAMING ✦ </span>
+      </div>
+    </div>
+    <div class="footer-grid">
+      <div class="footer-col brand-col">
+      </div>
+      <div class="footer-col action-col">
+        <h3>Recommend a Movie</h3>
+        <div class="footer-input-group">
+          <input type="text" id="recMovie" placeholder="Movie Name...">
+          <input type="number" id="recRating" placeholder="Rating (1-10)..." min="1" max="10">
+          <textarea id="recDesc" placeholder="Brief Description..."></textarea>
+          <textarea id="recPoints" placeholder="Rewatch Points (e.g., at 6:22 they kiss)..."></textarea>
+          <button class="btn-play-movie footer-btn" id="sendRec">SEND RECOMMENDATION</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 Hashphile.</p>
+    </div>
+  </footer>
+
+  <!-- Floating Back to Top -->
+  <button id="backToTop" class="back-to-top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"></polyline></svg>
+  </button>
 
   <script src="config.js"></script>
   <script src="script.js"></script>
