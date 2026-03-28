@@ -186,17 +186,35 @@
       </div>
 
       <div class="pulse-room-info" id="pulseRoomInfo">
+        <div class="pulse-participants">
+          <div class="participant-item host">
+            <img src="host_avatar_pulse_1774736255289.png" alt="Host" class="participant-avatar">
+            <span class="participant-status online"></span>
+          </div>
+          <div class="participant-item guest" id="guestAvatarWrapper" style="display: none;">
+            <img src="guest_avatar_pulse_1774736281940.png" alt="Friend" class="participant-avatar">
+            <span class="participant-status online"></span>
+          </div>
+        </div>
+
         <div class="room-details">
            <div class="private-badge">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-             <span>PRIVATE & SECURED</span>
+             <i class="fas fa-signal-stream"></i>
+             <span>PULSE WORKSPACE</span>
            </div>
            <div class="room-id-group">
              <span id="pulseIdDisplay">ID: ...</span>
              <span class="emergency-reset" onclick="emergencyResetPulse()">Reset Session</span>
            </div>
         </div>
-        <button class="btn-copy-link" id="copyPulseLink">Invite Friend</button>
+        
+        <div class="now-playing-card" id="nowPlayingCard">
+           <div class="np-info">
+             <span class="np-label">NOW WATCHING</span>
+             <h4 id="npTitle">No movie selected</h4>
+           </div>
+           <button class="btn-copy-link" id="copyPulseLink"><i class="fas fa-plus"></i> Invite</button>
+        </div>
       </div>
 
       <div class="pulse-video-grid">

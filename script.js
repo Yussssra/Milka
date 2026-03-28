@@ -65,9 +65,16 @@ function formatRuntime(runtime) {
 }
 
 function createMovieCard(movie) {
+  const escapedTitle = (movie.title || "Movie").replace(/'/g, "\\'");
   return `
     <div class="movie-card" data-select="${movie.id}">
-      <div class="movie-poster" style="background-image:url('${movie.backdrop_url || movie.poster_url}')"></div>
+      <div class="movie-poster" style="background-image:url('${movie.backdrop_url || movie.poster_url}')">
+        <div class="card-overlay-actions">
+           <button class="btn-suggest" onclick="event.stopPropagation(); suggestMovie(${movie.id}, '${escapedTitle}')" title="Suggest to Pulse">
+             <i class="fas fa-paper-plane"></i>
+           </button>
+        </div>
+      </div>
       <div class="movie-copy">
         <h3>${movie.title}</h3>
         <p class="movie-meta">${movie.release_year || "Unknown"}</p>
@@ -148,9 +155,17 @@ async function openModalLazy(baseMovie, type = "movie", broadcast = true) {
   videoModal.classList.add("open");
   document.body.style.overflow = "hidden";
 
+  // Pulse 9.0: Update Now Playing Dashboard
+  const npTitle = document.getElementById("npTitle");
+  if (npTitle) npTitle.textContent = baseMovie.title;
+  document.getElementById("nowPlayingCard").classList.add("active");
+
   if (broadcast && conn && conn.open) {
     conn.send({ type: 'open-player', movieId: baseMovie.id, playerType: type });
+    addChatMessage("system", `You shifted the movie to ${baseMovie.title}`);
     triggerSyncWave();
+  } else if (!broadcast) {
+    addChatMessage("system", `Friend shifted movie to ${baseMovie.title}`);
   }
 
   const deep = await fetchDeepMovieDetails(baseMovie.id);
@@ -648,6 +663,10 @@ function setupConnection() {
     // Status only turns green when data is open
     statusDot.className = "status-dot connected";
     
+    // Pulse 9.0: Reveal friend avatar
+    const guestAv = document.getElementById("guestAvatarWrapper");
+    if (guestAv) guestAv.style.display = "flex";
+    
      // GUARANTEED BILATERAL HANDSHAKE:
      if (isGuest) {
         console.log("Guest initiating video call to Host...");
@@ -702,6 +721,8 @@ function setupConnection() {
     } else if (data.type === 'reaction') {
       spawnReaction(data.emoji);
       triggerSyncWave();
+    } else if (data.type === 'suggestion') {
+      handleMovieSuggestion(data.movieId, data.movieTitle);
     } else if (data.type === 'room-full') {
       showToast("Private room is already full.");
       addChatMessage("system", "Access Denied: Room is private & full.");
@@ -904,10 +925,26 @@ if (avatar) {
     avatar.classList.remove("flash-active");
     void avatar.offsetWidth; // Force reflow
     avatar.classList.add("flash-active");
-    
     // Trigger Stardust
     createStardust();
   });
+}
+
+// Pulse 9.0: Suggestion Engine
+function handleMovieSuggestion(id, title) {
+  showToast(`Suggestion: ${title}`);
+  addChatMessage("system", `Friend suggested watching "${title}".`);
+  triggerSyncWave();
+}
+
+function suggestMovie(id, title) {
+  if (conn && conn.open) {
+    conn.send({ type: 'suggestion', movieId: id, movieTitle: title });
+    showToast("Suggestion sent!");
+    addChatMessage("system", `You suggested "${title}" to your friend.`);
+  } else {
+    showToast("Connect Pulse to suggest movies.");
+  }
 }
 
 // Reaction Pickers
