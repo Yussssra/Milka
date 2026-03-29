@@ -490,12 +490,12 @@ let isGuest = false;
 let typingTimeout = null;
 
 function triggerSyncWave() {
-  pulseSidebar.classList.add("syncing");
+  pulseWorkspace.classList.add("syncing");
   const wave = document.createElement("div");
   wave.className = "sync-wave";
-  pulseSidebar.appendChild(wave);
+  pulseWorkspace.appendChild(wave);
   setTimeout(() => {
-    pulseSidebar.classList.remove("syncing");
+    pulseWorkspace.classList.remove("syncing");
     wave.remove();
   }, 1200);
 }
@@ -573,9 +573,10 @@ function initPeer() {
   peer.on('open', (id) => {
     console.log('My Pulse ID: ' + id);
     pulseIdDisplay.textContent = `ID: ${id.substring(0, 8)}...`;
+    statusDot.className = "status-dot online"; // Host is online
     
     if (isGuest) {
-      showToast("Connecting to Friend's Pulse...");
+      showToast("Syncing with Host...");
       connectToPeer(roomParam);
     } else {
       updatePulseRoomInfo(id);
@@ -639,13 +640,19 @@ function initPeer() {
     if (err.type === 'peer-not-found') {
       showToast("Social Error: Finding Friend Failed. Link might be expired.");
     } else if (err.type === 'unavailable-id') {
-      showToast("Social Error: Trying fresh Room ID...");
+      showToast("Social Error: This Room ID is taken. Trying a fresh one...");
       sessionStorage.removeItem('pulseRoomId');
-      setTimeout(() => location.reload(), 1000);
+      setTimeout(() => location.reload(), 1500);
+    } else if (err.type === 'network') {
+      showToast("Social Error: Network issue. Check your connection.");
     } else {
       showToast(`Pulse Error: ${err.type}`);
     }
     statusDot.className = "status-dot";
+    // If we're the host and it failed, we might need to reset
+    if (!isGuest) {
+       pulseIdDisplay.textContent = "ID: Offline";
+    }
   });
 }
 
@@ -694,20 +701,36 @@ function setupConnection() {
       if (dot) dot.className = "presence-dot online";
     }
     
-     // GUARANTEED BILATERAL HANDSHAKE:
-     if (isGuest) {
-        console.log("Guest initiating video call to Host...");
-        startCall(conn.peer);
-     } else {
-        console.log("Host monitoring connection...");
-        // If Host doesn't see a stream in 3s, call the Guest as a fallback
+    // GUARANTEED BILATERAL HANDSHAKE:
+    if (isGuest) {
+      console.log("Guest initiating video call to Host...");
+      startCall(conn.peer);
+    } else {
+      console.log("Host monitoring connection...");
+      // Auto-sync current movie state to the joiner
+      const movie = allMovies.find(m => m.id === selectedId);
+      if (movie) {
+        const playerType = modalPlayerType.textContent.includes("TRAILER") ? "trailer" : "movie";
+        const isPlayerActive = videoModal.classList.contains("open") || pulseWorkspace.classList.contains("open");
+        
         setTimeout(() => {
-           if (!remoteVideo.classList.contains("playing") && conn && conn.open) {
-              console.log("Host initiating fallback video call to Guest...");
-              startCall(conn.peer);
-           }
-        }, 3500);
-     }
+          if (conn && conn.open) {
+            conn.send({ type: 'sync-movie', movieId: movie.id });
+            if (isPlayerActive) {
+              conn.send({ type: 'open-player', movieId: movie.id, playerType: playerType });
+            }
+          }
+        }, 1000);
+      }
+
+      // If Host doesn't see a stream in 3s, call the Guest as a fallback
+      setTimeout(() => {
+        if (!remoteVideo.classList.contains("playing") && conn && conn.open) {
+          console.log("Host initiating fallback video call to Guest...");
+          startCall(conn.peer);
+        }
+      }, 3500);
+    }
   });
 
   conn.on('close', () => {
@@ -758,7 +781,7 @@ function setupConnection() {
 
   conn.on('close', () => {
     isOccupied = false;
-    pulseSidebar.classList.remove("locked");
+    pulseWorkspace.classList.remove("locked");
     statusDot.className = "status-dot";
     showToast("Friend left the Pulse.");
   });
@@ -817,10 +840,21 @@ async function togglePulse(forceClose = false) {
     pulseWorkspace.classList.remove("open");
     document.body.classList.remove("pulse-active");
     openPulseBtn.classList.remove("active");
+    
+    if (document.fullscreenElement === pulseWorkspace) {
+      document.exitFullscreen().catch(() => {});
+    }
   } else {
     pulseWorkspace.classList.add("open");
     document.body.classList.add("pulse-active");
     openPulseBtn.classList.add("active");
+
+    // Enter Fullscreen for cinematic feel
+    if (!document.fullscreenElement) {
+      pulseWorkspace.requestFullscreen().catch(err => {
+        console.warn("Fullscreen request failed:", err);
+      });
+    }
     
     // Pre-acquire camera/mic and show preview
     if (!localStream) {
@@ -838,8 +872,28 @@ async function togglePulse(forceClose = false) {
   }
 }
 
+// Handle manual fullscreen exit (e.g., ESC key)
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && pulseWorkspace.classList.contains("open")) {
+    // If the user exited fullscreen manually but the workspace is still "open" in UI
+    // We can choose to keep it open or close it. Usually better to keep UI consistent.
+    console.log("Fullscreen exited manually.");
+  }
+});
+
 openPulseBtn.addEventListener("click", () => togglePulse());
 closePulseBtn.addEventListener("click", () => togglePulse(true));
+const reconnectPulseBtn = document.getElementById("reconnectPulse");
+if (reconnectPulseBtn) {
+  reconnectPulseBtn.addEventListener("click", () => {
+    if (peer) {
+      peer.destroy();
+      peer = null;
+    }
+    showToast("Re-initializing Pulse...");
+    initPeer();
+  });
+}
 
 // Chat & Typing Logic
 sendChatBtn.addEventListener("click", () => {
