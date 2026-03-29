@@ -33,7 +33,7 @@
           <input id="searchInput" type="text" placeholder="Search the globe...">
           <button id="clearSearch" class="clear-search-btn" style="display: none;">&times;</button>
         </div>
-        <div class="profile-avatar"></div>
+        <div class="pulse-status-pill" id="pulseStatusPill">Pulse offline</div>
       </div>
     </header>
 
@@ -195,6 +195,14 @@
         <!-- Workspace Left: Info & Participants -->
         <div class="ws-panel ws-left">
           <div class="ws-group">
+            <div class="pulse-room-card">
+              <span class="room-card-label">PRIVATE WATCH TOGETHER</span>
+              <h3 id="pulseRoomHeadline">Open Pulse and invite someone you love.</h3>
+              <p id="pulseRoomSubcopy">Live camera, synced playback, reactions, and chat all stay together in one room.</p>
+            </div>
+          </div>
+
+          <div class="ws-group">
             <label>PARTY MEMBERS</label>
             <div class="pulse-presence-list">
               <div class="presence-item">
@@ -204,7 +212,7 @@
               </div>
               <div class="presence-item guest" id="guestPresenceItem" style="display: none;">
                 <span class="presence-dot connecting"></span>
-                <span class="presence-name">Friend</span>
+                <span class="presence-name" id="guestPresenceName">Friend</span>
                 <span class="presence-tag">GUEST</span>
               </div>
             </div>
@@ -237,6 +245,16 @@
               </button>
             </div>
           </div>
+
+          <div class="ws-group">
+            <label>LIGHT TOUCHES</label>
+            <div class="pulse-moment-grid" id="pulseMomentGrid">
+              <button class="moment-chip" data-message="Ready when you are. Press play.">Ready</button>
+              <button class="moment-chip" data-message="Pause a second, I want to talk about that scene.">Pause</button>
+              <button class="moment-chip" data-message="That chemistry is unreal.">Chemistry</button>
+              <button class="moment-chip" data-message="Plot twist. Did you see that coming?">Plot twist</button>
+            </div>
+          </div>
         </div>
 
         <!-- Workspace Center: Cinema Area -->
@@ -254,12 +272,20 @@
         <div class="ws-panel ws-right">
           <div class="pulse-chat-area">
             <div class="ws-video-gallery" id="wsVideoGrid">
-              <div class="video-wrapper remote">
+              <div class="video-wrapper remote" id="remoteVideoCard">
                 <video id="remoteVideo" autoplay playsinline></video>
+                <div class="video-empty-state" id="remoteVideoEmpty">
+                  <span class="video-empty-title">Waiting for your person...</span>
+                  <span class="video-empty-copy">Share the invite link and Pulse will connect the live camera feed here.</span>
+                </div>
                 <span class="video-label" id="remoteLabel">Waiting for Friend...</span>
               </div>
-              <div class="video-wrapper local">
+              <div class="video-wrapper local" id="localVideoCard">
                 <video id="localVideo" autoplay muted playsinline></video>
+                <div class="video-empty-state local-ready" id="localVideoEmpty">
+                  <span class="video-empty-title">Camera preview</span>
+                  <span class="video-empty-copy">Pulse will show your live view here as soon as camera access is allowed.</span>
+                </div>
                 <span class="video-label">You</span>
               </div>
             </div>

@@ -484,10 +484,14 @@ if (sendRecBtn) {
 let peer = null;
 let conn = null;
 let localStream = null;
+let activeCall = null;
+let remoteStream = null;
 let isTyping = false;
 let isOccupied = false;
 let isGuest = false;
 let typingTimeout = null;
+let fallbackCallTimer = null;
+let hasShownMediaReadyToast = false;
 
 function triggerSyncWave() {
   pulseWorkspace.classList.add("syncing");
@@ -540,6 +544,174 @@ const pulseIdDisplay = document.getElementById("pulseIdDisplay");
 const wsPlayerFrame = document.getElementById("wsPlayerFrame");
 const wsPlayerPlaceholder = document.getElementById("wsPlayerPlaceholder");
 const toastContainer = document.getElementById("toastContainer");
+const pulseStatusPill = document.getElementById("pulseStatusPill");
+const localVideoCard = document.getElementById("localVideoCard");
+const remoteVideoCard = document.getElementById("remoteVideoCard");
+const localVideoEmpty = document.getElementById("localVideoEmpty");
+const remoteVideoEmpty = document.getElementById("remoteVideoEmpty");
+const guestPresenceItem = document.getElementById("guestPresenceItem");
+const guestPresenceName = document.getElementById("guestPresenceName");
+const remoteLabel = document.getElementById("remoteLabel");
+const pulseRoomHeadline = document.getElementById("pulseRoomHeadline");
+const pulseRoomSubcopy = document.getElementById("pulseRoomSubcopy");
+
+const reactionDefaults = ["🔥", "❤️", "😂", "😮", "👏"];
+document.querySelectorAll(".btn-reaction").forEach((btn, index) => {
+  const emoji = reactionDefaults[index] || "✨";
+  btn.dataset.emoji = emoji;
+  btn.textContent = emoji;
+});
+
+function setPulseStatus(text) {
+  if (pulseStatusPill) pulseStatusPill.textContent = text;
+}
+
+function setRoomCopy(title, copy) {
+  if (pulseRoomHeadline) pulseRoomHeadline.textContent = title;
+  if (pulseRoomSubcopy) pulseRoomSubcopy.textContent = copy;
+}
+
+function setGuestPresence(visible, online = false, label = "Friend") {
+  if (!guestPresenceItem) return;
+  guestPresenceItem.style.display = visible ? "flex" : "none";
+  if (guestPresenceName) guestPresenceName.textContent = label;
+  const dot = guestPresenceItem.querySelector(".presence-dot");
+  if (dot) dot.className = `presence-dot ${online ? "online" : "connecting"}`;
+}
+
+function updateMediaButtons() {
+  const videoTrack = localStream ? localStream.getVideoTracks()[0] : null;
+  const audioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+  const videoEnabled = !!(videoTrack && videoTrack.enabled);
+  const audioEnabled = !!(audioTrack && audioTrack.enabled);
+  toggleVideoBtn.innerHTML = videoEnabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+  toggleAudioBtn.innerHTML = audioEnabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+  toggleVideoBtn.classList.toggle("active", videoEnabled);
+  toggleAudioBtn.classList.toggle("active", audioEnabled);
+}
+
+function refreshVideoStage() {
+  const hasLocalVideo = !!(localStream && localStream.getVideoTracks().length);
+  const hasRemoteVideo = !!(remoteStream && remoteStream.getVideoTracks().length);
+  if (localVideoCard) localVideoCard.classList.toggle("connected", hasLocalVideo);
+  if (remoteVideoCard) remoteVideoCard.classList.toggle("connected", hasRemoteVideo);
+  if (localVideoEmpty) localVideoEmpty.classList.toggle("hidden", hasLocalVideo);
+  if (remoteVideoEmpty) remoteVideoEmpty.classList.toggle("hidden", hasRemoteVideo);
+  if (remoteLabel && !hasRemoteVideo) {
+    remoteLabel.textContent = conn && conn.open ? "Connecting live video..." : "Waiting for Friend...";
+  }
+}
+
+async function attachLocalStream(stream) {
+  if (!stream) return;
+  localStream = stream;
+  localVideo.srcObject = stream;
+  localVideo.onloadedmetadata = () => localVideo.play().catch(() => {});
+  updateMediaButtons();
+  refreshVideoStage();
+}
+
+async function ensureLocalStream() {
+  if (localStream) return localStream;
+  const attempts = [
+    { video: true, audio: true },
+    { video: true, audio: false }
+  ];
+
+  for (const constraints of attempts) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      await attachLocalStream(stream);
+      if (!hasShownMediaReadyToast) {
+        showToast(constraints.audio ? "Camera and mic are live." : "Camera is live.");
+        hasShownMediaReadyToast = true;
+      }
+      return stream;
+    } catch (error) {
+      console.warn("Pulse media request failed:", constraints, error);
+    }
+  }
+
+  updateMediaButtons();
+  refreshVideoStage();
+  throw new Error("pulse-media-unavailable");
+}
+
+function cleanupRemoteStream() {
+  remoteStream = null;
+  remoteVideo.srcObject = null;
+  remoteVideo.classList.remove("playing");
+  refreshVideoStage();
+}
+
+function sendPulseData(payload) {
+  if (conn && conn.open) conn.send(payload);
+}
+
+function sendMediaState() {
+  sendPulseData({
+    type: "media-state",
+    videoEnabled: !!(localStream && localStream.getVideoTracks()[0] && localStream.getVideoTracks()[0].enabled),
+    audioEnabled: !!(localStream && localStream.getAudioTracks()[0] && localStream.getAudioTracks()[0].enabled)
+  });
+}
+
+function bindCallEvents(call) {
+  if (activeCall && activeCall !== call) {
+    activeCall.close();
+  }
+  activeCall = call;
+  refreshVideoStage();
+
+  call.on("stream", (stream) => {
+    remoteStream = stream;
+    remoteVideo.srcObject = stream;
+    remoteVideo.onloadedmetadata = () => remoteVideo.play().catch(() => {});
+    remoteVideo.classList.add("playing");
+    remoteLabel.textContent = "Friend (Live)";
+    statusDot.className = "status-dot connected";
+    setPulseStatus("Pulse live");
+    refreshVideoStage();
+    createStardust();
+  });
+
+  call.on("close", () => {
+    if (activeCall === call) activeCall = null;
+    cleanupRemoteStream();
+    requestCallRetry();
+  });
+
+  call.on("error", (error) => {
+    console.error("Pulse call failed:", error);
+    if (activeCall === call) activeCall = null;
+    cleanupRemoteStream();
+    requestCallRetry();
+  });
+}
+
+function requestCallRetry() {
+  clearTimeout(fallbackCallTimer);
+  if (!(conn && conn.open)) return;
+  fallbackCallTimer = setTimeout(() => {
+    if (!remoteStream && conn && conn.open) {
+      sendPulseData({ type: "request-call" });
+      if (!isGuest) startCall(conn.peer);
+    }
+  }, 1800);
+}
+
+function updateConnectedState(connected) {
+  isOccupied = connected;
+  statusDot.className = connected ? "status-dot connected" : "status-dot connecting";
+  setPulseStatus(connected ? "Pulse linked" : "Pulse waiting");
+  setGuestPresence(connected, connected);
+  setRoomCopy(
+    connected ? "Pulse is connected." : "Open Pulse and invite someone you love.",
+    connected
+      ? "Talk, react, and stay on the same movie together while both camera feeds stay live."
+      : "Live camera, synced playback, reactions, and chat all stay together in one room."
+  );
+}
 
 function initPeer() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -548,6 +720,11 @@ function initPeer() {
   
   isGuest = !!roomParam;
   statusDot.className = "status-dot connecting";
+  setPulseStatus(isGuest ? "Joining Pulse" : "Pulse opening");
+  setRoomCopy(
+    isGuest ? "Joining your Pulse room..." : "Your Pulse room is loading.",
+    isGuest ? "We are connecting your live camera and sync controls now." : "Copy the invite once the room is ready and bring one person in."
+  );
 
   const peerOptions = {
     debug: 2,
@@ -574,6 +751,7 @@ function initPeer() {
     console.log('My Pulse ID: ' + id);
     pulseIdDisplay.textContent = `ID: ${id.substring(0, 8)}...`;
     statusDot.className = "status-dot online"; // Host is online
+    setPulseStatus(isGuest ? "Pulse ready" : "Pulse ready to invite");
     
     if (isGuest) {
       showToast("Syncing with Host...");
@@ -595,34 +773,21 @@ function initPeer() {
     
     // Accept connection: can be a rejoin or a fresh join
     conn = c;
-    isOccupied = true;
-    setupConnection();
+    setupConnection(c);
     showToast("Friend joined! Room Locked.");
     pulseWorkspace.classList.add("locked");
     statusDot.className = "status-dot connected";
   });
 
   peer.on('call', async (call) => {
-    document.getElementById("remoteLabel").textContent = "Negotiating...";
-    if (!localStream) {
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideo.srcObject = localStream;
-        localVideo.onloadedmetadata = () => localVideo.play();
-      } catch(e) { showToast("Camera access denied."); }
+    remoteLabel.textContent = "Answering live video...";
+    try {
+      const stream = await ensureLocalStream();
+      bindCallEvents(call);
+      call.answer(stream);
+    } catch (error) {
+      showToast("Camera access denied.");
     }
-    
-    // Safety delay to ensure stream is warm
-    setTimeout(() => {
-      call.answer(localStream);
-      call.on('stream', (remoteStream) => {
-        remoteVideo.srcObject = remoteStream;
-        remoteVideo.onloadedmetadata = () => remoteVideo.play();
-        document.getElementById("remoteLabel").textContent = "Friend (Live)";
-        remoteVideo.classList.add("playing");
-        createStardust(); // Visceral feedback
-      });
-    }, 400);
   });
 
   peer.on('disconnected', () => {
@@ -657,33 +822,24 @@ function initPeer() {
 }
 
 function connectToPeer(targetId) {
-  conn = peer.connect(targetId);
-  setupConnection();
+  const connection = peer.connect(targetId, { reliable: true });
+  setupConnection(connection);
   // startCall is now handled in setupConnection -> conn.on('open')
   statusDot.className = "status-dot connecting";
 }
 
 async function startCall(targetId) {
   try {
-    if (!localStream) {
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideo.srcObject = localStream;
-      localVideo.onloadedmetadata = () => localVideo.play();
-    }
-    const call = peer.call(targetId, localStream);
-    call.on('stream', (remoteStream) => {
-      remoteVideo.srcObject = remoteStream;
-      remoteVideo.onloadedmetadata = () => remoteVideo.play();
-      document.getElementById("remoteLabel").textContent = "Friend (Live)";
-      statusDot.className = "status-dot connected";
-      remoteVideo.classList.add("playing");
-    });
+    const stream = await ensureLocalStream();
+    const call = peer.call(targetId, stream);
+    bindCallEvents(call);
   } catch (err) {
     showToast("Camera/Mic access required for video chat.");
   }
 }
 
-function setupConnection() {
+function setupConnection(connection = conn) {
+  conn = connection;
   conn.on('open', () => {
     showToast("Linked to Party!");
     addChatMessage("system", "Pulse sync active.");
@@ -694,12 +850,9 @@ function setupConnection() {
     statusDot.className = "status-dot connected";
     
     // Pulse 11.0: Reveal guest presence badge
-    const guestPresenceItem = document.getElementById("guestPresenceItem");
-    if (guestPresenceItem) {
-      guestPresenceItem.style.display = "flex";
-      const dot = guestPresenceItem.querySelector(".presence-dot");
-      if (dot) dot.className = "presence-dot online";
-    }
+    updateConnectedState(true);
+    sendPulseData({ type: "participant-ready" });
+    sendMediaState();
     
     // GUARANTEED BILATERAL HANDSHAKE:
     if (isGuest) {
@@ -724,18 +877,13 @@ function setupConnection() {
       }
 
       // If Host doesn't see a stream in 3s, call the Guest as a fallback
-      setTimeout(() => {
-        if (!remoteVideo.classList.contains("playing") && conn && conn.open) {
-          console.log("Host initiating fallback video call to Guest...");
-          startCall(conn.peer);
-        }
-      }, 3500);
+      requestCallRetry();
     }
   });
 
   conn.on('close', () => {
-    isOccupied = false;
-    statusDot.className = "status-dot connecting";
+    updateConnectedState(false);
+    cleanupRemoteStream();
     showToast("Friend left. Room remains open.");
   });
 
@@ -773,6 +921,17 @@ function setupConnection() {
       triggerSyncWave();
     } else if (data.type === 'suggestion') {
       handleMovieSuggestion(data.movieId, data.movieTitle);
+    } else if (data.type === 'participant-ready') {
+      updateConnectedState(true);
+      requestCallRetry();
+    } else if (data.type === 'request-call') {
+      startCall(conn.peer);
+    } else if (data.type === 'media-state') {
+      remoteLabel.textContent = data.videoEnabled ? "Friend (camera on)" : "Friend (camera off)";
+    } else if (data.type === 'moment') {
+      addChatMessage("system", `Friend: ${data.message}`);
+      spawnReaction("✨");
+      triggerSyncWave();
     } else if (data.type === 'room-full') {
       showToast("Private room is already full.");
       addChatMessage("system", "Access Denied: Room is private & full.");
@@ -780,10 +939,8 @@ function setupConnection() {
   });
 
   conn.on('close', () => {
-    isOccupied = false;
     pulseWorkspace.classList.remove("locked");
-    statusDot.className = "status-dot";
-    showToast("Friend left the Pulse.");
+    cleanupRemoteStream();
   });
 }
 
@@ -809,17 +966,21 @@ function showToast(text) {
 function updatePulseRoomInfo(id) {
   sessionStorage.setItem('pulseRoomId', id);
   const roomUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
-  copyPulseLinkBtn.onclick = () => {
+  copyPulseLinkBtn.onclick = async () => {
     if (isOccupied) {
       showToast("Access Restricted: Session is private and locked.");
       return;
     }
-    navigator.clipboard.writeText(roomUrl);
-    copyPulseLinkBtn.textContent = "URL Copied!";
-    showToast("Invite link copied to clipboard.");
-    setTimeout(() => {
-      copyPulseLinkBtn.textContent = isOccupied ? "Session Locked" : "Invite Friend";
-    }, 2000);
+    try {
+      await navigator.clipboard.writeText(roomUrl);
+      copyPulseLinkBtn.textContent = "Invite Copied";
+      showToast("Invite link copied to clipboard.");
+      setTimeout(() => {
+        copyPulseLinkBtn.textContent = isOccupied ? "Session Locked" : "Invite Friend";
+      }, 2000);
+    } catch (error) {
+      showToast("Copy failed. Clipboard access was blocked.");
+    }
   };
 }
 
@@ -848,6 +1009,8 @@ async function togglePulse(forceClose = false) {
     pulseWorkspace.classList.add("open");
     document.body.classList.add("pulse-active");
     openPulseBtn.classList.add("active");
+    setPulseStatus("Pulse opening");
+    refreshVideoStage();
 
     // Enter Fullscreen for cinematic feel
     if (!document.fullscreenElement) {
@@ -857,15 +1020,10 @@ async function togglePulse(forceClose = false) {
     }
     
     // Pre-acquire camera/mic and show preview
-    if (!localStream) {
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideo.srcObject = localStream;
-        localVideo.onloadedmetadata = () => localVideo.play();
-        showToast("Welcome to your Workspace. Camera online.");
-      } catch(e) { 
-        showToast("Workspace Active. Camera access recommended.");
-      }
+    try {
+      await ensureLocalStream();
+    } catch(e) { 
+      showToast("Workspace Active. Camera access recommended.");
     }
     
     if (!peer) initPeer();
@@ -886,6 +1044,12 @@ closePulseBtn.addEventListener("click", () => togglePulse(true));
 const reconnectPulseBtn = document.getElementById("reconnectPulse");
 if (reconnectPulseBtn) {
   reconnectPulseBtn.addEventListener("click", () => {
+    clearTimeout(fallbackCallTimer);
+    cleanupRemoteStream();
+    if (activeCall) {
+      activeCall.close();
+      activeCall = null;
+    }
     if (peer) {
       peer.destroy();
       peer = null;
@@ -924,21 +1088,33 @@ chatInput.addEventListener("keypress", (e) => {
 });
 
 // Media Controls
-toggleVideoBtn.addEventListener("click", () => {
-  if (localStream) {
-    const track = localStream.getVideoTracks()[0];
+toggleVideoBtn.addEventListener("click", async () => {
+  try {
+    const stream = await ensureLocalStream();
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
     track.enabled = !track.enabled;
-    const isWp = pulseWorkspace.classList.contains("open");
-    toggleVideoBtn.innerHTML = track.enabled ? (isWp ? '<i class="fas fa-video"></i> Camera' : "Disable Camera") : (isWp ? '<i class="fas fa-video-slash"></i> Camera' : "Enable Camera");
+    updateMediaButtons();
+    sendMediaState();
+    refreshVideoStage();
+  } catch (error) {
+    showToast("We could not access your camera.");
   }
 });
 
-toggleAudioBtn.addEventListener("click", () => {
-  if (localStream) {
-    const track = localStream.getAudioTracks()[0];
+toggleAudioBtn.addEventListener("click", async () => {
+  try {
+    const stream = await ensureLocalStream();
+    const track = stream.getAudioTracks()[0];
+    if (!track) {
+      showToast("Mic is unavailable on this device.");
+      return;
+    }
     track.enabled = !track.enabled;
-    const isWp = pulseWorkspace.classList.contains("open");
-    toggleAudioBtn.innerHTML = track.enabled ? (isWp ? '<i class="fas fa-microphone"></i> Mic' : "Mute Mic") : (isWp ? '<i class="fas fa-microphone-slash"></i> Mic' : "Unmute Mic");
+    updateMediaButtons();
+    sendMediaState();
+  } catch (error) {
+    showToast("We could not access your microphone.");
   }
 });
 
@@ -963,6 +1139,7 @@ forceSyncBtn.addEventListener("click", () => {
       });
     }
 
+    requestCallRetry();
     showToast("Pulse Signal: Force Syncing all frames...");
     triggerSyncWave();
   }
@@ -1001,18 +1178,29 @@ function createStardust() {
   }
 }
 
-// Avatar Trigger
-const avatar = document.querySelector(".profile-avatar");
-if (avatar) {
-  avatar.addEventListener("click", () => {
-    // Spark Flash
-    avatar.classList.remove("flash-active");
-    void avatar.offsetWidth; // Force reflow
-    avatar.classList.add("flash-active");
-    // Trigger Stardust
-    createStardust();
-  });
+function emergencyResetPulse() {
+  if (!(conn && conn.open)) {
+    showToast("Open Pulse with your friend first.");
+    return;
+  }
+  cleanupRemoteStream();
+  if (activeCall) {
+    activeCall.close();
+    activeCall = null;
+  }
+  const movie = allMovies.find(m => m.id === selectedId);
+  const playerType = modalPlayerType.textContent.includes("TRAILER") ? "trailer" : "movie";
+  if (movie) {
+    conn.send({ type: 'sync-movie', movieId: movie.id });
+    conn.send({ type: 'open-player', movieId: movie.id, playerType: playerType });
+  }
+  requestCallRetry();
+  startCall(conn.peer);
+  triggerSyncWave();
+  showToast("Pulse session is re-syncing.");
 }
+
+window.emergencyResetPulse = emergencyResetPulse;
 
 // Pulse 9.0: Suggestion Engine
 function handleMovieSuggestion(id, title) {
@@ -1045,11 +1233,26 @@ document.querySelectorAll(".btn-reaction").forEach(btn => {
   });
 });
 
+document.querySelectorAll(".moment-chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const message = btn.dataset.message;
+    if (conn && conn.open) {
+      conn.send({ type: "moment", message });
+      addChatMessage("system", `You: ${message}`);
+      triggerSyncWave();
+    } else {
+      showToast("Connect Pulse to send a moment.");
+    }
+  });
+});
+
 // Boot logic
 window.addEventListener('load', () => {
+  setPulseStatus("Pulse offline");
+  refreshVideoStage();
+  updateMediaButtons();
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('room')) {
     togglePulse();
   }
 });
-

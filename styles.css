@@ -168,39 +168,23 @@ body {
   color: var(--text-muted);
 }
 
-.profile-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: transparent;
-  background-image: url('assets/yellow_smiley.png');
-  background-size: cover;
-  border: 1px solid rgba(223, 255, 0, 0.2);
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-  filter: drop-shadow(0 0 8px var(--accent-glow));
-  animation: smilePulse 4s ease-in-out infinite;
-}
-
-.profile-avatar:hover {
-  transform: scale(1.15) rotate(5deg);
-  border-color: var(--accent);
-  filter: drop-shadow(0 0 15px var(--accent-glow-strong));
-}
-
-.profile-avatar.flash-active {
-  animation: smileSpark 0.4s ease-out;
-}
-
-@keyframes smilePulse {
-  0%, 100% { filter: drop-shadow(0 0 8px var(--accent-glow)); transform: scale(1); }
-  50% { filter: drop-shadow(0 0 15px var(--accent-glow-strong)); transform: scale(1.05); }
-}
-
-@keyframes smileSpark {
-  0% { filter: brightness(1) drop-shadow(0 0 8px var(--accent-glow)); }
-  50% { filter: brightness(3) drop-shadow(0 0 30px #fff); transform: scale(1.2); }
-  100% { filter: brightness(1) drop-shadow(0 0 8px var(--accent-glow)); }
+.pulse-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(223, 255, 0, 0.22);
+  background:
+    linear-gradient(135deg, rgba(223, 255, 0, 0.18), rgba(223, 255, 0, 0.06)),
+    rgba(255, 255, 255, 0.04);
+  color: #f7ffd3;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 }
 
 /* Hero Section */
@@ -1512,6 +1496,38 @@ body {
   font-weight: 600;
 }
 
+.pulse-room-card {
+  padding: 22px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(223, 255, 0, 0.16), transparent 35%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.room-card-label {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(223, 255, 0, 0.9);
+  font-weight: 700;
+}
+
+.pulse-room-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.3rem;
+  line-height: 1.2;
+}
+
+.pulse-room-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.6;
+}
+
 /* NEW Presence System */
 .pulse-presence-list {
   display: flex;
@@ -1608,6 +1624,31 @@ body {
   background: var(--accent);
   color: #000;
   box-shadow: 0 0 20px rgba(223, 255, 0, 0.4);
+}
+
+.pulse-moment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.moment-chip {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.moment-chip:hover {
+  transform: translateY(-2px);
+  border-color: rgba(223, 255, 0, 0.55);
+  background: rgba(223, 255, 0, 0.08);
 }
 
 /* Center Panel: Cinema Area */
@@ -1746,6 +1787,40 @@ body {
   box-shadow: 0 4px 15px rgba(223, 255, 0, 0.3);
 }
 
+@media (max-width: 1200px) {
+  .workspace-main {
+    grid-template-columns: 300px 1fr 340px;
+  }
+}
+
+@media (max-width: 980px) {
+  .workspace-nav {
+    height: auto;
+    padding: 18px 20px;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .workspace-main {
+    height: auto;
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .ws-panel {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .ws-right {
+    padding: 20px;
+  }
+
+  .pulse-chat-area {
+    min-height: 70vh;
+  }
+}
+
 /* App Overlays */
 /* Workspace Theater Specifics */
 .cinema-theater {
@@ -1817,6 +1892,11 @@ body {
   transition: border-color 0.3s ease;
 }
 
+.ws-video-gallery .video-wrapper.connected {
+  border-color: rgba(223, 255, 0, 0.6);
+  box-shadow: 0 0 0 1px rgba(223, 255, 0, 0.22), 0 16px 32px rgba(0, 0, 0, 0.38);
+}
+
 .ws-video-gallery .video-wrapper:hover {
   border-color: var(--accent);
 }
@@ -1840,6 +1920,38 @@ body {
   backdrop-filter: blur(8px);
   z-index: 5;
   border: 1px solid rgba(255,255,255,0.1);
+}
+
+.video-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top, rgba(223, 255, 0, 0.08), transparent 45%),
+    linear-gradient(180deg, rgba(5, 5, 8, 0.2), rgba(5, 5, 8, 0.84));
+  z-index: 2;
+}
+
+.video-empty-state.hidden {
+  display: none;
+}
+
+.video-empty-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.video-empty-copy {
+  max-width: 28ch;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .now-playing-card {
@@ -1918,4 +2030,3 @@ body {
   color: #fff;
   pointer-events: none;
 }
-
