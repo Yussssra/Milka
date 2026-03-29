@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #101418;
+  background:
+    radial-gradient(circle at top left, rgba(255, 107, 53, 0.18), transparent 24%),
+    radial-gradient(circle at top right, rgba(113, 131, 85, 0.18), transparent 20%),
+    linear-gradient(180deg, #f8f2e8 0%, #f3ecdf 100%);
+  font-family: "DM Sans", sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.metric-card {
+  @apply rounded-3xl bg-white/80 p-5 shadow-panel backdrop-blur;
+}
+
+.panel {
+  @apply rounded-[2rem] border border-white/60 bg-white/75 shadow-panel backdrop-blur;
+}
+
+.grid-hero {
+  background-image:
+    linear-gradient(rgba(16, 20, 24, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 20, 24, 0.04) 1px, transparent 1px);
+  background-size: 36px 36px;
+}

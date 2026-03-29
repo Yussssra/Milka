@@ -146,16 +146,23 @@ async function fetchDeepMovieDetails(id) {
 }
 
 async function openModalLazy(baseMovie, type = "movie", broadcast = true) {
-  modalTitle.textContent = "Loading Player...";
-  movieInfoTitle.textContent = baseMovie.title;
-  movieInfoDescription.textContent = baseMovie.overview;
-  playerFrame.src = ""; // Clear
-  watchProviderButton.href = `https://www.themoviedb.org/movie/${baseMovie.id}`;
+  const isWorkspace = pulseWorkspace.classList.contains("open");
   
-  videoModal.classList.add("open");
-  document.body.style.overflow = "hidden";
+  if (!isWorkspace) {
+    modalTitle.textContent = "Loading Player...";
+    movieInfoTitle.textContent = baseMovie.title;
+    movieInfoDescription.textContent = baseMovie.overview;
+    playerFrame.src = ""; // Clear
+    watchProviderButton.href = `https://www.themoviedb.org/movie/${baseMovie.id}`;
+    videoModal.classList.add("open");
+    document.body.style.overflow = "hidden";
+  } else {
+    wsPlayerPlaceholder.style.display = "none";
+    wsPlayerFrame.style.display = "block";
+    wsPlayerFrame.src = ""; // Clear
+  }
 
-  // Pulse 9.0: Update Now Playing Dashboard
+  // Pulse Workspace Sync: Update Now Playing Dashboard
   const npTitle = document.getElementById("npTitle");
   if (npTitle) npTitle.textContent = baseMovie.title;
   document.getElementById("nowPlayingCard").classList.add("active");
@@ -169,16 +176,23 @@ async function openModalLazy(baseMovie, type = "movie", broadcast = true) {
   }
 
   const deep = await fetchDeepMovieDetails(baseMovie.id);
-  
-  modalTitle.textContent = "Now Playing";
-  if (type === "movie") {
-    modalPlayerType.className = "pill-badge type-movie";
-    modalPlayerType.textContent = "FULL MOVIE";
-    playerFrame.src = `https://www.vidking.net/embed/movie/${baseMovie.id}?color=DFFF00&autoPlay=true`;
+  const videoSrc = type === "movie" 
+    ? `https://www.vidking.net/embed/movie/${baseMovie.id}?color=DFFF00&autoPlay=true`
+    : (deep ? deep.trailer_embed : "about:blank");
+
+  if (!isWorkspace) {
+    modalTitle.textContent = "Now Playing";
+    if (type === "movie") {
+      modalPlayerType.className = "pill-badge type-movie";
+      modalPlayerType.textContent = "FULL MOVIE";
+    } else {
+      modalPlayerType.className = "pill-badge type-trailer";
+      modalPlayerType.textContent = "TRAILER";
+    }
+    playerFrame.src = videoSrc;
   } else {
-    modalPlayerType.className = "pill-badge type-trailer";
-    modalPlayerType.textContent = "TRAILER";
-    playerFrame.src = deep ? deep.trailer_embed : "about:blank";
+    wsPlayerFrame.src = videoSrc;
+    showToast(`Workspace playing: ${baseMovie.title}`);
   }
 }
 
@@ -492,16 +506,23 @@ function spawnReaction(emoji) {
   reaction.className = "floating-reaction";
   reaction.textContent = emoji;
   
-  // Random horizontal variance
+  const isWp = pulseWorkspace.classList.contains("open");
   const randomX = Math.random() * 60 - 30;
-  reaction.style.right = `calc(440px + ${randomX}px)`;
+  
+  if (isWp) {
+    // Center it over the theater
+    reaction.style.left = `calc(50% + ${randomX}px)`;
+    reaction.style.right = "auto";
+  } else {
+    reaction.style.right = `calc(440px + ${randomX}px)`;
+  }
   
   container.appendChild(reaction);
   reaction.addEventListener("animationend", () => reaction.remove());
 }
 
 const appContainer = document.querySelector(".app-container");
-const pulseSidebar = document.getElementById("pulseSidebar");
+const pulseWorkspace = document.getElementById("pulseWorkspace");
 const openPulseBtn = document.getElementById("openPulse");
 const closePulseBtn = document.getElementById("closePulse");
 const chatMessages = document.getElementById("chatMessages");
@@ -516,6 +537,8 @@ const forceSyncBtn = document.getElementById("forceSync");
 const statusDot = document.getElementById("statusDot");
 const typingIndicator = document.getElementById("typingIndicator");
 const pulseIdDisplay = document.getElementById("pulseIdDisplay");
+const wsPlayerFrame = document.getElementById("wsPlayerFrame");
+const wsPlayerPlaceholder = document.getElementById("wsPlayerPlaceholder");
 const toastContainer = document.getElementById("toastContainer");
 
 function initPeer() {
@@ -574,7 +597,7 @@ function initPeer() {
     isOccupied = true;
     setupConnection();
     showToast("Friend joined! Room Locked.");
-    pulseSidebar.classList.add("locked");
+    pulseWorkspace.classList.add("locked");
     statusDot.className = "status-dot connected";
   });
 
@@ -663,9 +686,13 @@ function setupConnection() {
     // Status only turns green when data is open
     statusDot.className = "status-dot connected";
     
-    // Pulse 9.0: Reveal friend avatar
-    const guestAv = document.getElementById("guestAvatarWrapper");
-    if (guestAv) guestAv.style.display = "flex";
+    // Pulse 11.0: Reveal guest presence badge
+    const guestPresenceItem = document.getElementById("guestPresenceItem");
+    if (guestPresenceItem) {
+      guestPresenceItem.style.display = "flex";
+      const dot = guestPresenceItem.querySelector(".presence-dot");
+      if (dot) dot.className = "presence-dot online";
+    }
     
      // GUARANTEED BILATERAL HANDSHAKE:
      if (isGuest) {
@@ -737,10 +764,10 @@ function setupConnection() {
   });
 }
 
-function addChatMessage(type, message) {
+function addChatMessage(sender, text) {
   const div = document.createElement("div");
-  div.className = `msg ${type}`;
-  div.textContent = message;
+  div.className = sender === "system" ? "msg system" : (sender === "local" ? "msg local" : "msg remote");
+  div.textContent = text;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -785,14 +812,14 @@ updateHeroSection = function(movie, broadcast = true) {
 
 // UI Toggles
 async function togglePulse(forceClose = false) {
-  const isOpen = pulseSidebar.classList.contains("open");
+  const isOpen = pulseWorkspace.classList.contains("open");
   if (isOpen || forceClose) {
-    pulseSidebar.classList.remove("open");
-    appContainer.classList.remove("pulse-open");
+    pulseWorkspace.classList.remove("open");
+    document.body.classList.remove("pulse-active");
     openPulseBtn.classList.remove("active");
   } else {
-    pulseSidebar.classList.add("open");
-    appContainer.classList.add("pulse-open");
+    pulseWorkspace.classList.add("open");
+    document.body.classList.add("pulse-active");
     openPulseBtn.classList.add("active");
     
     // Pre-acquire camera/mic and show preview
@@ -801,9 +828,9 @@ async function togglePulse(forceClose = false) {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localVideo.srcObject = localStream;
         localVideo.onloadedmetadata = () => localVideo.play();
-        showToast("Camera ready for Pulse.");
+        showToast("Welcome to your Workspace. Camera online.");
       } catch(e) { 
-        showToast("Pulse: Camera access recommended for social watch.");
+        showToast("Workspace Active. Camera access recommended.");
       }
     }
     
@@ -847,7 +874,8 @@ toggleVideoBtn.addEventListener("click", () => {
   if (localStream) {
     const track = localStream.getVideoTracks()[0];
     track.enabled = !track.enabled;
-    toggleVideoBtn.textContent = track.enabled ? "Disable Camera" : "Enable Camera";
+    const isWp = pulseWorkspace.classList.contains("open");
+    toggleVideoBtn.innerHTML = track.enabled ? (isWp ? '<i class="fas fa-video"></i> Camera' : "Disable Camera") : (isWp ? '<i class="fas fa-video-slash"></i> Camera' : "Enable Camera");
   }
 });
 
@@ -855,13 +883,15 @@ toggleAudioBtn.addEventListener("click", () => {
   if (localStream) {
     const track = localStream.getAudioTracks()[0];
     track.enabled = !track.enabled;
-    toggleAudioBtn.textContent = track.enabled ? "Mute Mic" : "Unmute Mic";
+    const isWp = pulseWorkspace.classList.contains("open");
+    toggleAudioBtn.innerHTML = track.enabled ? (isWp ? '<i class="fas fa-microphone"></i> Mic' : "Mute Mic") : (isWp ? '<i class="fas fa-microphone-slash"></i> Mic' : "Unmute Mic");
   }
 });
 
 forceSyncBtn.addEventListener("click", () => {
   const movie = allMovies.find(m => m.id === selectedId);
   const isModalOpen = videoModal.classList.contains("open");
+  const isWorkspaceOpen = pulseWorkspace.classList.contains("open");
   const playerType = modalPlayerType.textContent.includes("TRAILER") ? "trailer" : "movie";
 
   if (movie && conn && conn.open) {
@@ -871,7 +901,7 @@ forceSyncBtn.addEventListener("click", () => {
       movieId: movie.id 
     });
     
-    if (isModalOpen) {
+    if (isModalOpen || isWorkspaceOpen) {
       conn.send({ 
         type: 'open-player', 
         movieId: movie.id, 

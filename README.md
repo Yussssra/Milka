@@ -1,24 +1,45 @@
-# milka
+# Business Decision Assistant
 
-Static movie site wired for real TMDB data.
+A startup-style MVP for small businesses that combines operational metrics, forecasting, anomaly detection, and AI-style recommendations.
 
-## Configure live API
+## Stack
 
-1. Open `config.js`
-2. Paste your TMDB v4 bearer token into `tmdbBearerToken`
-3. Set `country` to your provider region if needed
-4. Open `index.html`
+- Frontend: React + Vite + Tailwind CSS
+- Backend: Node.js + Express
+- Data layer today: mock in-memory dataset shaped for future PostgreSQL ingestion
+- AI layer today: deterministic recommendation engine with a chat-style explanation API
 
-Without a token, the UI uses a fallback real-movie catalog.
+## What is implemented
 
-## What this setup does
+- Executive dashboard for sales, expenses, profit, and inventory
+- Seven-day sales forecast
+- Stock planning recommendations
+- Expense anomaly detection
+- Chat interface for business questions such as "Why is my profit low this week?"
+- API structure ready for real business data and LLM integration
 
-- Loads live popular movies from TMDB
-- Fetches official posters and backdrops
-- Loads official YouTube trailers
-- Requests captions by default in trailer embeds
-- Shows TMDB provider availability page for legal viewing options
+## Run
 
-## Important note
+1. Install dependencies:
+   - `npm.cmd install`
+2. Start the backend:
+   - `npm.cmd run dev:backend`
+3. Start the frontend in another terminal:
+   - `npm.cmd run dev:frontend`
+4. Open the frontend URL shown by Vite.
 
-Full in-site movie playback with subtitles requires you to legally host or license the content and use a player like Mux or Vimeo with subtitle tracks.
+## Information I will need from you next
+
+- Business type and outlet count
+- Product catalog or inventory items
+- Typical daily sales fields you track
+- Typical expense categories
+- Current stock units and reorder rules
+- Any existing Excel, CSV, POS, or accounting exports
+
+## Suggested next phases
+
+1. Replace mock data with your real Shawok data import
+2. Add PostgreSQL persistence and authentication
+3. Add a Python forecasting service for Prophet or LSTM
+4. Add an LLM provider for richer conversational analysis

@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
@@ -175,84 +176,115 @@
       </div>
     </main>
 
-    <!-- Pulse Watch Party Sidebar -->
-    <aside class="pulse-sidebar" id="pulseSidebar">
-      <div class="pulse-header">
-        <div class="pulse-status-box">
+    <!-- Pulse Watch Party Full-Screen Workspace -->
+    <section class="pulse-workspace" id="pulseWorkspace">
+      <div class="workspace-nav">
+        <div class="ws-nav-left">
           <div class="status-dot" id="statusDot"></div>
-          <h2>HASHPHILE PULSE</h2>
+          <span class="ws-badge">PULSE ROOM</span>
+          <h2 id="pulseIdDisplay">ID: ...</h2>
         </div>
-        <button class="close-pulse" id="closePulse">&times;</button>
+        <div class="ws-nav-right">
+          <button class="ws-btn-secondary" id="copyPulseLink">Invite Friend</button>
+          <button class="ws-btn-exit" id="closePulse">Leave Room</button>
+        </div>
       </div>
 
-      <div class="pulse-room-info" id="pulseRoomInfo">
-        <div class="pulse-participants">
-          <div class="participant-item host">
-            <img src="host_avatar_pulse_1774736255289.png" alt="Host" class="participant-avatar">
-            <span class="participant-status online"></span>
+      <div class="workspace-main">
+        <!-- Workspace Left: Info & Participants -->
+        <div class="ws-panel ws-left">
+          <div class="ws-group">
+            <label>PARTY MEMBERS</label>
+            <div class="pulse-presence-list">
+              <div class="presence-item">
+                <span class="presence-dot online"></span>
+                <span class="presence-name">You</span>
+                <span class="presence-tag">HOST</span>
+              </div>
+              <div class="presence-item guest" id="guestPresenceItem" style="display: none;">
+                <span class="presence-dot connecting"></span>
+                <span class="presence-name">Friend</span>
+                <span class="presence-tag">GUEST</span>
+              </div>
+            </div>
           </div>
-          <div class="participant-item guest" id="guestAvatarWrapper" style="display: none;">
-            <img src="guest_avatar_pulse_1774736281940.png" alt="Friend" class="participant-avatar">
-            <span class="participant-status online"></span>
+
+          <div class="ws-group">
+            <div class="now-playing-card" id="nowPlayingCard">
+              <div class="np-context">
+                <span class="np-label">PLAYING NOW</span>
+                <span class="np-live-tag">LIVE SYNC</span>
+              </div>
+              <h4 id="npTitle">Station Idle</h4>
+              <div class="room-id-group">
+                <button class="emergency-reset-v2" onclick="emergencyResetPulse()">Re-sync Session</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ws-group ws-quick-controls">
+            <label>MEDIA HUB</label>
+            <div class="ws-control-dock">
+              <button class="dock-btn" id="toggleVideo" title="Camera On/Off">
+                <i class="fas fa-video"></i>
+              </button>
+              <button class="dock-btn" id="toggleAudio" title="Mic On/Off">
+                <i class="fas fa-microphone"></i>
+              </button>
+              <button class="dock-btn pulse-sync-dock" id="forceSync" title="Force Party Sync">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
           </div>
         </div>
 
-        <div class="room-details">
-           <div class="private-badge">
-             <i class="fas fa-signal-stream"></i>
-             <span>PULSE WORKSPACE</span>
-           </div>
-           <div class="room-id-group">
-             <span id="pulseIdDisplay">ID: ...</span>
-             <span class="emergency-reset" onclick="emergencyResetPulse()">Reset Session</span>
-           </div>
+        <!-- Workspace Center: Cinema Area -->
+        <div class="ws-panel ws-center">
+          <div class="cinema-theater" id="cinemaTheater">
+            <div class="ws-player-placeholder" id="wsPlayerPlaceholder">
+              <i class="fas fa-play-circle"></i>
+              <p>Select a movie to start the show</p>
+            </div>
+            <iframe id="wsPlayerFrame" class="ws-player-frame" title="Workspace Player" allow="autoplay; fullscreen" style="display: none;"></iframe>
+          </div>
         </div>
-        
-        <div class="now-playing-card" id="nowPlayingCard">
-           <div class="np-info">
-             <span class="np-label">NOW WATCHING</span>
-             <h4 id="npTitle">No movie selected</h4>
-           </div>
-           <button class="btn-copy-link" id="copyPulseLink"><i class="fas fa-plus"></i> Invite</button>
-        </div>
-      </div>
 
-      <div class="pulse-video-grid">
-        <div class="video-wrapper local">
-          <video id="localVideo" autoplay muted playsinline></video>
-          <span class="video-label">You (Local)</span>
-        </div>
-        <div class="video-wrapper remote">
-          <video id="remoteVideo" autoplay playsinline></video>
-          <span class="video-label" id="remoteLabel">Waiting for Friend...</span>
+        <!-- Workspace Right: Social Area -->
+        <div class="ws-panel ws-right">
+          <div class="pulse-chat-area">
+            <div class="ws-video-gallery" id="wsVideoGrid">
+              <div class="video-wrapper remote">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <span class="video-label" id="remoteLabel">Waiting for Friend...</span>
+              </div>
+              <div class="video-wrapper local">
+                <video id="localVideo" autoplay muted playsinline></video>
+                <span class="video-label">You</span>
+              </div>
+            </div>
+            <div class="chat-header">Live Chat</div>
+            <div class="chat-messages" id="chatMessages">
+              <div class="msg system">Welcome to your Pulse Workspace!</div>
+            </div>
+            <div class="typing-indicator" id="typingIndicator" style="display: none;">Friend is typing...</div>
+            
+            <div class="chat-footer">
+              <div class="pulse-reactions" id="reactionBar">
+                <button class="btn-reaction" data-emoji="🔥">🔥</button>
+                <button class="btn-reaction" data-emoji="❤️">❤️</button>
+                <button class="btn-reaction" data-emoji="😂">😂</button>
+                <button class="btn-reaction" data-emoji="😮">😮</button>
+                <button class="btn-reaction" data-emoji="👏">👏</button>
+              </div>
+              <div class="chat-input-group">
+                <input type="text" id="chatInput" placeholder="Message friend...">
+                <button id="sendChat">Send</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div class="pulse-chat-area">
-        <div class="chat-messages" id="chatMessages">
-          <div class="msg system">Welcome to Hashphile Pulse! Start a movie to sync.</div>
-        </div>
-        <div class="typing-indicator" id="typingIndicator" style="display: none;">Friend is typing...</div>
-        <div class="pulse-reactions" id="reactionBar">
-          <button class="btn-reaction" data-emoji="🔥">🔥</button>
-          <button class="btn-reaction" data-emoji="❤️">❤️</button>
-          <button class="btn-reaction" data-emoji="😂">😂</button>
-          <button class="btn-reaction" data-emoji="😮">😮</button>
-          <button class="btn-reaction" data-emoji="👏">👏</button>
-        </div>
-        <div class="chat-input-group">
-          <input type="text" id="chatInput" placeholder="Type a message...">
-          <button id="sendChat">Send</button>
-        </div>
-      </div>
-
-      <div class="pulse-controls">
-        <button class="btn-pulse-action" id="toggleVideo">Toggle Camera</button>
-        <button class="btn-pulse-action" id="toggleAudio">Toggle Mic</button>
-        <button class="btn-pulse-action sync-btn" id="forceSync">Sync Movie</button>
-      </div>
-      </div>
-    </aside>
+    </section>
 
     <!-- Global Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
