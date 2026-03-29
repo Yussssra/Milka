@@ -555,6 +555,46 @@ const remoteLabel = document.getElementById("remoteLabel");
 const pulseRoomHeadline = document.getElementById("pulseRoomHeadline");
 const pulseRoomSubcopy = document.getElementById("pulseRoomSubcopy");
 
+function promotePulseWorkspace() {
+  if (pulseWorkspace && pulseWorkspace.parentElement !== document.body) {
+    document.body.appendChild(pulseWorkspace);
+  }
+}
+
+function getPulseRoomIdFromUrl() {
+  const url = new URL(window.location.href);
+  const searchRoom = url.searchParams.get("room");
+  if (searchRoom) return searchRoom;
+
+  const hash = url.hash.replace(/^#/, "");
+  if (hash.startsWith("pulse-room=")) {
+    return decodeURIComponent(hash.slice("pulse-room=".length));
+  }
+
+  return "";
+}
+
+function buildPulseRoomUrl(roomId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("room", roomId);
+  url.hash = `pulse-room=${encodeURIComponent(roomId)}`;
+  return url.toString();
+}
+
+function forcePulseViewport() {
+  pulseWorkspace.style.position = "fixed";
+  pulseWorkspace.style.inset = "0";
+  pulseWorkspace.style.top = "0";
+  pulseWorkspace.style.left = "0";
+  pulseWorkspace.style.right = "0";
+  pulseWorkspace.style.bottom = "0";
+  pulseWorkspace.style.width = "100vw";
+  pulseWorkspace.style.height = "100vh";
+  pulseWorkspace.style.maxWidth = "100vw";
+  pulseWorkspace.style.maxHeight = "100vh";
+  pulseWorkspace.style.zIndex = "2147483647";
+}
+
 const reactionDefaults = ["🔥", "❤️", "😂", "😮", "👏"];
 document.querySelectorAll(".btn-reaction").forEach((btn, index) => {
   const emoji = reactionDefaults[index] || "✨";
@@ -714,8 +754,7 @@ function updateConnectedState(connected) {
 }
 
 function initPeer() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const roomParam = urlParams.get('room');
+  const roomParam = getPulseRoomIdFromUrl();
   const storedId = sessionStorage.getItem('pulseRoomId');
   
   isGuest = !!roomParam;
@@ -965,7 +1004,7 @@ function showToast(text) {
 
 function updatePulseRoomInfo(id) {
   sessionStorage.setItem('pulseRoomId', id);
-  const roomUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
+  const roomUrl = buildPulseRoomUrl(id);
   copyPulseLinkBtn.onclick = async () => {
     if (isOccupied) {
       showToast("Access Restricted: Session is private and locked.");
@@ -996,6 +1035,8 @@ updateHeroSection = function(movie, broadcast = true) {
 
 // UI Toggles
 async function togglePulse(forceClose = false) {
+  promotePulseWorkspace();
+  forcePulseViewport();
   const isOpen = pulseWorkspace.classList.contains("open");
   if (isOpen || forceClose) {
     pulseWorkspace.classList.remove("open");
@@ -1010,6 +1051,7 @@ async function togglePulse(forceClose = false) {
     document.body.classList.add("pulse-active");
     openPulseBtn.classList.add("active");
     setPulseStatus("Pulse opening");
+    forcePulseViewport();
     refreshVideoStage();
 
     // Enter Fullscreen for cinematic feel
@@ -1248,11 +1290,12 @@ document.querySelectorAll(".moment-chip").forEach(btn => {
 
 // Boot logic
 window.addEventListener('load', () => {
+  promotePulseWorkspace();
+  forcePulseViewport();
   setPulseStatus("Pulse offline");
   refreshVideoStage();
   updateMediaButtons();
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('room')) {
+  if (getPulseRoomIdFromUrl()) {
     togglePulse();
   }
 });
