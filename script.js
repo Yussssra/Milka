@@ -225,7 +225,12 @@ document.addEventListener("click", (event) => {
   if (!target) return;
   const mId = Number(target.dataset.select);
   const movie = allMovies.find(v => v.id === mId);
-  if (movie) openModalLazy(movie, "movie");
+  if (movie) {
+    if (searchResultsArea.classList.contains("active")) {
+      performSearch("");
+    }
+    openModalLazy(movie, "movie");
+  }
 });
 
 /* TMDB MASSIVE API FETCHING */
