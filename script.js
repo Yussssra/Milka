@@ -98,16 +98,9 @@ function getEmbedUrl(movieId, serverKey = currentServer, type = "movie") {
 }
 
 function createMovieCard(movie) {
-  const escapedTitle = (movie.title || "Movie").replace(/'/g, "\\'");
   return `
     <div class="movie-card" data-select="${movie.id}">
-      <div class="movie-poster" style="background-image:url('${movie.backdrop_url || movie.poster_url}')">
-        <div class="card-overlay-actions">
-           <button class="btn-suggest" onclick="event.stopPropagation(); suggestMovie(${movie.id}, '${escapedTitle}')" title="Suggest to Pulse">
-             <i class="fas fa-paper-plane"></i>
-           </button>
-        </div>
-      </div>
+      <div class="movie-poster" style="background-image:url('${movie.backdrop_url || movie.poster_url}')"></div>
       <div class="movie-copy">
         <h3>${movie.title}</h3>
         <p class="movie-meta">${movie.release_year || "Unknown"}</p>
