@@ -1,6 +1,6 @@
 {
-  "cleanUrls": true,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/$1" }
-  ]
+  "version": 2,
+  "buildCommand": "echo 'Hashphile build ready'",
+  "outputDirectory": ".",
+  "cleanUrls": true
 }

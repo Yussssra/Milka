@@ -1,13 +1,8 @@
 {
-  "name": "business-decision-assistant",
+  "name": "hashphile-movie-app",
   "private": true,
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
   "scripts": {
-    "dev:frontend": "npm --workspace frontend run dev",
-    "dev:backend": "npm --workspace backend run dev",
-    "build": "npm --workspace frontend run build"
+    "build": "echo 'Hashphile movie site ready'",
+    "start": "node server.js"
   }
 }
