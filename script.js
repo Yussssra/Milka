@@ -64,11 +64,34 @@ function formatRuntime(runtime) {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
+let currentServer = "vidlink";
+let activeModalMovie = null;
+let activeModalType = "movie";
+
+function getEmbedUrl(movieId, serverKey = currentServer, type = "movie") {
+  if (type === "trailer") return null;
+  switch (serverKey) {
+    case "vidlink":
+      return `https://vidlink.pro/movie/${movieId}?primaryColor=DFFF00&autoplay=true`;
+    case "vidsrc_me":
+      return `https://vidsrc.me/embed/movie?tmdb=${movieId}`;
+    case "vidsrc_cc":
+      return `https://vidsrc.cc/v2/embed/movie/${movieId}`;
+    case "embed_su":
+      return `https://embed.su/embed/movie/${movieId}`;
+    default:
+      return `https://vidlink.pro/movie/${movieId}?primaryColor=DFFF00&autoplay=true`;
+  }
+}
+
 function createMovieCard(movie) {
   const escapedTitle = (movie.title || "Movie").replace(/'/g, "\\'");
   return `
     <div class="movie-card" data-select="${movie.id}">
       <div class="movie-poster" style="background-image:url('${movie.backdrop_url || movie.poster_url}')">
+        <div class="card-play-overlay">
+          <div class="play-badge"><i class="fas fa-play"></i> Watch</div>
+        </div>
         <div class="card-overlay-actions">
            <button class="btn-suggest" onclick="event.stopPropagation(); suggestMovie(${movie.id}, '${escapedTitle}')" title="Suggest to Pulse">
              <i class="fas fa-paper-plane"></i>
@@ -103,6 +126,13 @@ function mapBaseMovie(m) {
     poster_url: m.poster_path ? `${TMDB_IMAGE}/w500${m.poster_path}` : "",
     backdrop_url: m.backdrop_path ? `${TMDB_IMAGE}/original${m.backdrop_path}` : ""
   };
+}
+
+function addMoviesToState(newMovies) {
+  if (!newMovies || !newMovies.length) return;
+  const existingIds = new Set(allMovies.map(m => m.id));
+  const uniqueNew = newMovies.filter(m => !existingIds.has(m.id));
+  allMovies = [...allMovies, ...uniqueNew];
 }
 
 function updateHeroSection(movie) {
@@ -146,26 +176,52 @@ async function fetchDeepMovieDetails(id) {
 }
 
 async function openModalLazy(baseMovie, type = "movie", broadcast = true) {
+  if (!baseMovie) return;
+  activeModalMovie = baseMovie;
+  activeModalType = type;
+
   const isWorkspace = pulseWorkspace.classList.contains("open");
+  const serverSwitcherBar = document.getElementById("serverSwitcherBar");
   
+  if (type === "trailer") {
+    if (serverSwitcherBar) serverSwitcherBar.style.display = "none";
+  } else {
+    if (serverSwitcherBar) serverSwitcherBar.style.display = "flex";
+  }
+
+  const initialVideoSrc = type === "movie" 
+    ? getEmbedUrl(baseMovie.id, currentServer, "movie")
+    : "about:blank";
+
   if (!isWorkspace) {
-    modalTitle.textContent = "Loading Player...";
+    modalTitle.textContent = baseMovie.title || "Now Playing";
     movieInfoTitle.textContent = baseMovie.title;
-    movieInfoDescription.textContent = baseMovie.overview;
-    playerFrame.src = ""; // Clear
+    movieInfoDescription.textContent = baseMovie.overview || "No description available.";
     watchProviderButton.href = `https://www.themoviedb.org/movie/${baseMovie.id}`;
+    
+    if (type === "movie") {
+      modalPlayerType.className = "pill-badge type-movie";
+      modalPlayerType.textContent = "FULL MOVIE";
+    } else {
+      modalPlayerType.className = "pill-badge type-trailer";
+      modalPlayerType.textContent = "TRAILER";
+    }
+
+    // Set player src IMMEDIATELY so video starts streaming instantly without delay!
+    playerFrame.src = initialVideoSrc;
     videoModal.classList.add("open");
     document.body.style.overflow = "hidden";
   } else {
     wsPlayerPlaceholder.style.display = "none";
     wsPlayerFrame.style.display = "block";
-    wsPlayerFrame.src = ""; // Clear
+    wsPlayerFrame.src = initialVideoSrc;
   }
 
   // Pulse Workspace Sync: Update Now Playing Dashboard
   const npTitle = document.getElementById("npTitle");
   if (npTitle) npTitle.textContent = baseMovie.title;
-  document.getElementById("nowPlayingCard").classList.add("active");
+  const nowPlayingCard = document.getElementById("nowPlayingCard");
+  if (nowPlayingCard) nowPlayingCard.classList.add("active");
 
   if (broadcast && conn && conn.open) {
     conn.send({ type: 'open-player', movieId: baseMovie.id, playerType: type });
@@ -175,26 +231,33 @@ async function openModalLazy(baseMovie, type = "movie", broadcast = true) {
     addChatMessage("system", `Friend shifted movie to ${baseMovie.title}`);
   }
 
-  const deep = await fetchDeepMovieDetails(baseMovie.id);
-  const videoSrc = type === "movie" 
-    ? `https://www.vidking.net/embed/movie/${baseMovie.id}?color=DFFF00&autoPlay=true`
-    : (deep ? deep.trailer_embed : "about:blank");
-
-  if (!isWorkspace) {
-    modalTitle.textContent = "Now Playing";
-    if (type === "movie") {
-      modalPlayerType.className = "pill-badge type-movie";
-      modalPlayerType.textContent = "FULL MOVIE";
-    } else {
-      modalPlayerType.className = "pill-badge type-trailer";
-      modalPlayerType.textContent = "TRAILER";
+  // Fetch deep details in background without blocking player startup
+  fetchDeepMovieDetails(baseMovie.id).then(deep => {
+    if (type === "trailer" && deep && deep.trailer_embed) {
+      if (!isWorkspace) playerFrame.src = deep.trailer_embed;
+      else wsPlayerFrame.src = deep.trailer_embed;
     }
-    playerFrame.src = videoSrc;
-  } else {
-    wsPlayerFrame.src = videoSrc;
-    showToast(`Workspace playing: ${baseMovie.title}`);
-  }
+  });
 }
+
+// Server Switcher Button Listeners
+document.querySelectorAll(".server-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".server-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentServer = btn.dataset.server;
+    if (activeModalMovie && activeModalType === "movie") {
+      const newSrc = getEmbedUrl(activeModalMovie.id, currentServer, "movie");
+      const isWorkspace = pulseWorkspace.classList.contains("open");
+      if (!isWorkspace) {
+        playerFrame.src = newSrc;
+      } else {
+        wsPlayerFrame.src = newSrc;
+      }
+      showToast(`Switched Server: ${btn.textContent.trim()}`);
+    }
+  });
+});
 
 function closeVideoModal(broadcast = true) {
   videoModal.classList.remove("open");
@@ -221,19 +284,25 @@ watchTrailerButton.addEventListener("click", () => {
 });
 
 document.addEventListener("click", (event) => {
+  const suggestBtn = event.target.closest(".btn-suggest");
+  if (suggestBtn) return;
+
   const target = event.target.closest(".movie-card");
   if (!target) return;
+
   const mId = Number(target.dataset.select);
   const movie = allMovies.find(v => v.id === mId);
   if (movie) {
     if (searchResultsArea.classList.contains("active")) {
-      performSearch("");
+      searchResultsArea.classList.remove("active");
+      clearSearchBtn.style.display = "none";
+      searchInput.value = "";
     }
     openModalLazy(movie, "movie");
   }
 });
 
-/* TMDB MASSIVE API FETCHING */
+/* TMDB MASSIVE API FETCHING - PARALLEL HIGH SPEED */
 async function fetchJson(url, init) {
   const response = await fetch(url, init);
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
@@ -243,31 +312,39 @@ async function fetchJson(url, init) {
 async function fetchMultiplePages(endpoint, pages = 2) {
   const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
   const separator = endpoint.includes("?") ? "&" : "?";
-  let merged = [];
   try {
+    const pagePromises = [];
     for (let i = 1; i <= pages; i++) {
-      const data = await fetchJson(`${TMDB_BASE}${endpoint}${separator}page=${i}&language=en-US`, { headers });
-      merged = [...merged, ...(data.results || [])];
+      pagePromises.push(fetchJson(`${TMDB_BASE}${endpoint}${separator}page=${i}&language=en-US`, { headers }).catch(() => ({ results: [] })));
     }
-  } catch(e) { console.error("Failed fetching multi page", e); }
-  return merged.map(mapBaseMovie).filter(m => m.poster_url && m.backdrop_url);
+    const pagesData = await Promise.all(pagePromises);
+    let merged = [];
+    pagesData.forEach(data => {
+      if (data && data.results) merged.push(...data.results);
+    });
+    return merged.map(mapBaseMovie).filter(m => m.poster_url && m.backdrop_url);
+  } catch(e) { 
+    console.error("Failed fetching multi page", e); 
+    return [];
+  }
 }
 
-// Custom specialized fetch for Hashphile's favorites
+// Custom specialized fetch for Hashphile's favorites in parallel
 async function fetchExactFavorites() {
   const queries = ["The Substance", "Rockstar", "Now You See Me", "Eternity", "About Time"];
   const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
-  const exactMatches = [];
-
-  for (const q of queries) {
-    try {
-      const data = await fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(q)}&language=en-US&page=1`, { headers });
-      if (data.results && data.results.length > 0) {
-        exactMatches.push(mapBaseMovie(data.results[0]));
-      }
-    } catch (e) { console.error("Error fetching favorite", q, e); }
+  try {
+    const results = await Promise.all(
+      queries.map(q => 
+        fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(q)}&language=en-US&page=1`, { headers })
+          .then(data => (data.results && data.results.length > 0 ? mapBaseMovie(data.results[0]) : null))
+          .catch(() => null)
+      )
+    );
+    return results.filter(m => m && m.poster_url);
+  } catch (e) { 
+    return []; 
   }
-  return exactMatches.filter(m => m.poster_url);
 }
 
 async function loadLiveMovies() {
@@ -290,11 +367,11 @@ async function loadLiveMovies() {
     const langFilter = "&with_original_language=hi|en|ml|ta|te";
     const [favorites, romance, trending, action, scifi, drama] = await Promise.all([
       fetchExactFavorites(),
-      fetchMultiplePages(`/discover/movie?with_genres=10749${langFilter}`, 4), // Romance
-      fetchMultiplePages(`/trending/movie/week`, 4), // Trending globally
-      fetchMultiplePages(`/discover/movie?with_genres=28,53${langFilter}`, 4),
-      fetchMultiplePages(`/discover/movie?with_genres=878${langFilter}`, 4),
-      fetchMultiplePages(`/discover/movie?with_genres=18${langFilter}`, 4)
+      fetchMultiplePages(`/discover/movie?with_genres=10749${langFilter}`, 2), // Romance
+      fetchMultiplePages(`/trending/movie/week`, 2), // Trending globally
+      fetchMultiplePages(`/discover/movie?with_genres=28,53${langFilter}`, 2),
+      fetchMultiplePages(`/discover/movie?with_genres=878${langFilter}`, 2),
+      fetchMultiplePages(`/discover/movie?with_genres=18${langFilter}`, 2)
     ]);
 
     allMovies = [...favorites, ...romance, ...trending, ...action, ...scifi, ...drama];
@@ -317,7 +394,7 @@ async function loadLiveMovies() {
   }
 }
 
-/* GLOBAL SEARCH ENGINE 2.0 */
+/* GLOBAL SEARCH ENGINE 2.0 - ULTRA FAST DEBOUCE & LOCAL FILTERING */
 const searchLoader = document.getElementById("searchLoader");
 const clearSearchBtn = document.getElementById("clearSearch");
 
@@ -331,22 +408,31 @@ async function performSearch(query) {
   searchResultsArea.classList.add("active");
   clearSearchBtn.style.display = "block";
   searchQueryText.textContent = query;
-  searchLoader.style.display = "block";
+
+  // Instant local match filter so results show without network lag
+  const lowerQ = query.toLowerCase();
+  const localMatches = allMovies.filter(m => (m.title || "").toLowerCase().includes(lowerQ));
+  if (localMatches.length > 0) {
+    renderRow(searchGrid, localMatches);
+    searchLoader.style.display = "none";
+  } else {
+    searchLoader.style.display = "block";
+  }
+
+  if (!config.tmdbBearerToken) return;
   
   const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
   try {
     const data = await fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, { headers });
     const results = (data.results || []).map(mapBaseMovie).filter(m => m.poster_url);
     
-    // Smoothly update grid
     renderRow(searchGrid, results);
     searchLoader.style.display = "none";
     
-    // Add to allMovies so results are selectable
-    allMovies = [...allMovies, ...results];
+    addMoviesToState(results);
   } catch (e) {
     console.error("Search failed", e);
-    renderRow(searchGrid, []);
+    if (localMatches.length === 0) renderRow(searchGrid, []);
     searchLoader.style.display = "none";
   }
 }
@@ -360,10 +446,10 @@ searchInput.addEventListener("input", (e) => {
   }
 
   clearTimeout(searchDebounceTimeout);
-  searchLoader.style.display = "block"; // Immediate feedback
+  searchLoader.style.display = "block";
   searchDebounceTimeout = setTimeout(() => {
     performSearch(q);
-  }, 400); 
+  }, 250); 
 });
 
 clearSearchBtn.addEventListener("click", () => {
@@ -380,7 +466,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Carousel Pagination Controls (Horizontal scrolling arrows)
+// Carousel Pagination Controls
 document.querySelectorAll('.scroll-btn.right-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     const carousel = e.target.parentElement.querySelector('.poster-carousel');
