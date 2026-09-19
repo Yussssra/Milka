@@ -305,20 +305,34 @@ document.addEventListener("click", (event) => {
   }
 });
 
-/* TMDB MASSIVE API FETCHING - PARALLEL HIGH SPEED */
-async function fetchJson(url, init) {
-  const response = await fetch(url, init);
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  return response.json();
+const TMDB_KEY = config.tmdbApiKey || "94c33fa8a2f9f654b8bb74a6cfefb029";
+
+/* TMDB MASSIVE API FETCHING - FAILSAFE HIGH SPEED */
+async function fetchJson(url, init = {}) {
+  try {
+    const separator = url.includes("?") ? "&" : "?";
+    const fullUrl = url.includes("api_key=") ? url : `${url}${separator}api_key=${TMDB_KEY}`;
+    
+    const options = { ...init };
+    if (!options.headers) {
+      options.headers = { accept: "application/json" };
+    }
+    
+    const response = await fetch(fullUrl, options);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch(err) {
+    console.warn("Fetch warning for", url, err);
+    return null;
+  }
 }
 
 async function fetchMultiplePages(endpoint, pages = 2) {
-  const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
   const separator = endpoint.includes("?") ? "&" : "?";
   try {
     const pagePromises = [];
     for (let i = 1; i <= pages; i++) {
-      pagePromises.push(fetchJson(`${TMDB_BASE}${endpoint}${separator}page=${i}&language=en-US`, { headers }).catch(() => ({ results: [] })));
+      pagePromises.push(fetchJson(`${TMDB_BASE}${endpoint}${separator}page=${i}&language=en-US`));
     }
     const pagesData = await Promise.all(pagePromises);
     let merged = [];
@@ -335,12 +349,11 @@ async function fetchMultiplePages(endpoint, pages = 2) {
 // Custom specialized fetch for Hashphile's favorites in parallel
 async function fetchExactFavorites() {
   const queries = ["The Substance", "Rockstar", "Now You See Me", "Eternity", "About Time"];
-  const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
   try {
     const results = await Promise.all(
       queries.map(q => 
-        fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(q)}&language=en-US&page=1`, { headers })
-          .then(data => (data.results && data.results.length > 0 ? mapBaseMovie(data.results[0]) : null))
+        fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(q)}&language=en-US&page=1`)
+          .then(data => (data && data.results && data.results.length > 0 ? mapBaseMovie(data.results[0]) : null))
           .catch(() => null)
       )
     );
@@ -364,14 +377,6 @@ async function loadLiveMovies() {
   const msgEl = document.getElementById("tmdbMessage");
   const banner = document.getElementById("tmdbBanner");
 
-  if (!config.tmdbBearerToken) {
-    if (statusEl) statusEl.textContent = "Fallback Mode";
-    if (msgEl) msgEl.textContent = "API key missing. Load TMDB token to stream massive databases.";
-    allMovies = fallbackMovies;
-    updateHeroSection(allMovies[0]);
-    return;
-  }
-
   // Pre-render skeleton shimmers for secondary categories
   renderSkeletonRow(romanceRow);
   renderSkeletonRow(actionRow);
@@ -387,16 +392,23 @@ async function loadLiveMovies() {
       fetchMultiplePages(`/trending/movie/week`, 2)
     ]);
 
-    addMoviesToState([...favorites, ...trending]);
-    renderRow(favoritesRow, favorites);
-    renderRow(popularRow, trending);
-    
-    if (trending.length > 0) {
-      if (banner) banner.style.display = 'none';
-      updateHeroSection(trending[0]);
+    const stage1Movies = [...(favorites || []), ...(trending || [])];
+    if (stage1Movies.length > 0) {
+      addMoviesToState(stage1Movies);
+      renderRow(favoritesRow, favorites);
+      renderRow(popularRow, trending);
+      if (trending && trending.length > 0) {
+        if (banner) banner.style.display = 'none';
+        updateHeroSection(trending[0]);
+      }
+    } else {
+      allMovies = fallbackMovies;
+      updateHeroSection(allMovies[0]);
+      renderRow(favoritesRow, fallbackMovies);
+      renderRow(popularRow, fallbackMovies);
     }
 
-    // STAGE 2: Progressive background load for remaining categories without blocking paint
+    // STAGE 2: Progressive background load for remaining categories
     setTimeout(async () => {
       try {
         const [romance, action, scifi, drama] = await Promise.all([
@@ -406,18 +418,32 @@ async function loadLiveMovies() {
           fetchMultiplePages(`/discover/movie?with_genres=18${langFilter}`, 2)
         ]);
 
-        addMoviesToState([...romance, ...action, ...scifi, ...drama]);
-        renderRow(romanceRow, romance);
-        renderRow(actionRow, action);
-        renderRow(scifiRow, scifi);
-        renderRow(dramaRow, drama);
+        const stage2Movies = [
+          ...(romance || []),
+          ...(action || []),
+          ...(scifi || []),
+          ...(drama || [])
+        ];
+        if (stage2Movies.length > 0) {
+          addMoviesToState(stage2Movies);
+          renderRow(romanceRow, romance);
+          renderRow(actionRow, action);
+          renderRow(scifiRow, scifi);
+          renderRow(dramaRow, drama);
+        } else {
+          renderRow(romanceRow, fallbackMovies);
+          renderRow(actionRow, fallbackMovies);
+          renderRow(scifiRow, fallbackMovies);
+          renderRow(dramaRow, fallbackMovies);
+        }
       } catch (err) {
         console.warn("Background category fetch:", err);
       }
     }, 150);
   } catch(e) {
-    console.error(e);
-    if (statusEl) statusEl.textContent = "Data Pipeline Error";
+    console.error("loadLiveMovies error:", e);
+    allMovies = fallbackMovies;
+    updateHeroSection(allMovies[0]);
   }
 }
 
@@ -446,17 +472,14 @@ async function performSearch(query) {
     searchLoader.style.display = "block";
   }
 
-  if (!config.tmdbBearerToken) return;
-  
-  const headers = { Authorization: `Bearer ${config.tmdbBearerToken}`, accept: "application/json" };
   try {
-    const data = await fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, { headers });
-    const results = (data.results || []).map(mapBaseMovie).filter(m => m.poster_url);
-    
-    renderRow(searchGrid, results);
+    const data = await fetchJson(`${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`);
+    if (data && data.results) {
+      const results = data.results.map(mapBaseMovie).filter(m => m.poster_url);
+      renderRow(searchGrid, results);
+      addMoviesToState(results);
+    }
     searchLoader.style.display = "none";
-    
-    addMoviesToState(results);
   } catch (e) {
     console.error("Search failed", e);
     if (localMatches.length === 0) renderRow(searchGrid, []);
