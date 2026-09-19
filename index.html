@@ -6,7 +6,7 @@
   <title>Hashphile - Watch Free Movies</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -30,10 +30,9 @@
       <div class="nav-right">
         <div class="search-container">
           <span class="search-icon">&#9906;</span>
-          <input id="searchInput" type="text" placeholder="Search the globe...">
+          <input id="searchInput" type="text" placeholder="Search movies...">
           <button id="clearSearch" class="clear-search-btn" style="display: none;">&times;</button>
         </div>
-        <div class="pulse-status-pill" id="pulseStatusPill">Pulse offline</div>
       </div>
     </header>
 
@@ -155,10 +154,11 @@
           <div class="server-switcher-bar" id="serverSwitcherBar">
             <span class="server-label"><i class="fas fa-server"></i> Switch Stream Server:</span>
             <div class="server-buttons">
-              <button class="server-btn active" data-server="vidlink">⚡ Server 1 (VidLink)</button>
-              <button class="server-btn" data-server="vidsrc_me">🚀 Server 2 (VidSrc.me)</button>
-              <button class="server-btn" data-server="vidsrc_cc">🎬 Server 3 (VidSrc.cc)</button>
-              <button class="server-btn" data-server="embed_su">🍿 Server 4 (Embed.su)</button>
+              <button class="server-btn active" data-server="vidlink"><i class="fas fa-bolt"></i> Server 1 (VidLink)</button>
+              <button class="server-btn" data-server="vidsrc_me"><i class="fas fa-play-circle"></i> Server 2 (VidSrc.me)</button>
+              <button class="server-btn" data-server="vidsrc_cc"><i class="fas fa-film"></i> Server 3 (VidSrc.cc)</button>
+              <button class="server-btn" data-server="embed_su"><i class="fas fa-layer-group"></i> Server 4 (Embed.su)</button>
+              <button class="server-btn" data-server="embed2"><i class="fas fa-globe"></i> Server 5 (2Embed)</button>
             </div>
           </div>
           <div class="trailer-wrap">
@@ -306,11 +306,11 @@
             
             <div class="chat-footer">
               <div class="pulse-reactions" id="reactionBar">
-                <button class="btn-reaction" data-emoji="🔥">🔥</button>
-                <button class="btn-reaction" data-emoji="❤️">❤️</button>
-                <button class="btn-reaction" data-emoji="😂">😂</button>
-                <button class="btn-reaction" data-emoji="😮">😮</button>
-                <button class="btn-reaction" data-emoji="👏">👏</button>
+                <button class="btn-reaction" data-icon="heart" title="Love"><i class="fas fa-heart"></i></button>
+                <button class="btn-reaction" data-icon="fire" title="Fire"><i class="fas fa-fire"></i></button>
+                <button class="btn-reaction" data-icon="star" title="Star"><i class="fas fa-star"></i></button>
+                <button class="btn-reaction" data-icon="thumbs-up" title="Thumbs Up"><i class="fas fa-thumbs-up"></i></button>
+                <button class="btn-reaction" data-icon="bolt" title="Awesome"><i class="fas fa-bolt"></i></button>
               </div>
               <div class="chat-input-group">
                 <input type="text" id="chatInput" placeholder="Message friend...">

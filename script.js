@@ -70,15 +70,28 @@ let activeModalType = "movie";
 
 function getEmbedUrl(movieId, serverKey = currentServer, type = "movie") {
   if (type === "trailer") return null;
+  const isMovie = type === "movie";
   switch (serverKey) {
     case "vidlink":
-      return `https://vidlink.pro/movie/${movieId}?primaryColor=DFFF00&autoplay=true`;
+      return isMovie 
+        ? `https://vidlink.pro/movie/${movieId}?primaryColor=DFFF00&autoplay=true`
+        : `https://vidlink.pro/tv/${movieId}/1/1?primaryColor=DFFF00&autoplay=true`;
     case "vidsrc_me":
-      return `https://vidsrc.me/embed/movie?tmdb=${movieId}`;
+      return isMovie
+        ? `https://vidsrc.me/embed/movie?tmdb=${movieId}`
+        : `https://vidsrc.me/embed/tv?tmdb=${movieId}&season=1&episode=1`;
     case "vidsrc_cc":
-      return `https://vidsrc.cc/v2/embed/movie/${movieId}`;
+      return isMovie
+        ? `https://vidsrc.cc/v2/embed/movie/${movieId}`
+        : `https://vidsrc.cc/v2/embed/tv/${movieId}/1/1`;
     case "embed_su":
-      return `https://embed.su/embed/movie/${movieId}`;
+      return isMovie
+        ? `https://embed.su/embed/movie/${movieId}`
+        : `https://embed.su/embed/tv/${movieId}/1/1`;
+    case "embed2":
+      return isMovie
+        ? `https://www.2embed.cc/embed/${movieId}`
+        : `https://www.2embed.cc/embedtv/${movieId}&s=1&e=1`;
     default:
       return `https://vidlink.pro/movie/${movieId}?primaryColor=DFFF00&autoplay=true`;
   }
@@ -347,50 +360,74 @@ async function fetchExactFavorites() {
   }
 }
 
+function renderSkeletonRow(container, count = 5) {
+  if (!container) return;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `<div class="movie-card skeleton-card"><div class="skeleton-poster"></div></div>`;
+  }
+  container.innerHTML = html;
+}
+
 async function loadLiveMovies() {
   const statusEl = document.getElementById("tmdbStatus");
   const msgEl = document.getElementById("tmdbMessage");
   const banner = document.getElementById("tmdbBanner");
 
   if (!config.tmdbBearerToken) {
-    statusEl.textContent = "Fallback Mode";
-    msgEl.textContent = "API key missing. Load TMDB token to stream massive databases.";
+    if (statusEl) statusEl.textContent = "Fallback Mode";
+    if (msgEl) msgEl.textContent = "API key missing. Load TMDB token to stream massive databases.";
     allMovies = fallbackMovies;
     updateHeroSection(allMovies[0]);
     return;
   }
 
-  statusEl.textContent = "Loading Massive Data...";
-  msgEl.textContent = "Booting up Custom Hashphile Environment...";
+  // Pre-render skeleton shimmers for secondary categories
+  renderSkeletonRow(romanceRow);
+  renderSkeletonRow(actionRow);
+  renderSkeletonRow(scifiRow);
+  renderSkeletonRow(dramaRow);
 
   try {
     const langFilter = "&with_original_language=hi|en|ml|ta|te";
-    const [favorites, romance, trending, action, scifi, drama] = await Promise.all([
+    
+    // STAGE 1: Instant initial load (Hero + Top 2 Rows)
+    const [favorites, trending] = await Promise.all([
       fetchExactFavorites(),
-      fetchMultiplePages(`/discover/movie?with_genres=10749${langFilter}`, 2), // Romance
-      fetchMultiplePages(`/trending/movie/week`, 2), // Trending globally
-      fetchMultiplePages(`/discover/movie?with_genres=28,53${langFilter}`, 2),
-      fetchMultiplePages(`/discover/movie?with_genres=878${langFilter}`, 2),
-      fetchMultiplePages(`/discover/movie?with_genres=18${langFilter}`, 2)
+      fetchMultiplePages(`/trending/movie/week`, 2)
     ]);
 
-    allMovies = [...favorites, ...romance, ...trending, ...action, ...scifi, ...drama];
-    
+    addMoviesToState([...favorites, ...trending]);
     renderRow(favoritesRow, favorites);
-    renderRow(romanceRow, romance);
     renderRow(popularRow, trending);
-    renderRow(actionRow, action);
-    renderRow(scifiRow, scifi);
-    renderRow(dramaRow, drama);
     
-    // Set Hero to the absolute latest trending movie globally!
-    if(trending.length > 0) {
-      banner.style.display = 'none';
+    if (trending.length > 0) {
+      if (banner) banner.style.display = 'none';
       updateHeroSection(trending[0]);
     }
+
+    // STAGE 2: Progressive background load for remaining categories without blocking paint
+    setTimeout(async () => {
+      try {
+        const [romance, action, scifi, drama] = await Promise.all([
+          fetchMultiplePages(`/discover/movie?with_genres=10749${langFilter}`, 2),
+          fetchMultiplePages(`/discover/movie?with_genres=28,53${langFilter}`, 2),
+          fetchMultiplePages(`/discover/movie?with_genres=878${langFilter}`, 2),
+          fetchMultiplePages(`/discover/movie?with_genres=18${langFilter}`, 2)
+        ]);
+
+        addMoviesToState([...romance, ...action, ...scifi, ...drama]);
+        renderRow(romanceRow, romance);
+        renderRow(actionRow, action);
+        renderRow(scifiRow, scifi);
+        renderRow(dramaRow, drama);
+      } catch (err) {
+        console.warn("Background category fetch:", err);
+      }
+    }, 150);
   } catch(e) {
     console.error(e);
-    statusEl.textContent = "Data Pipeline Error";
+    if (statusEl) statusEl.textContent = "Data Pipeline Error";
   }
 }
 
@@ -1085,7 +1122,7 @@ function addChatMessage(sender, text) {
 function showToast(text) {
   const toast = document.createElement("div");
   toast.className = "toast";
-  toast.innerHTML = `<span>⚡</span> ${text}`;
+  toast.innerHTML = `<span><i class="fas fa-info-circle"></i></span> ${text}`;
   toastContainer.appendChild(toast);
   setTimeout(() => {
     toast.classList.add("fade-out");
