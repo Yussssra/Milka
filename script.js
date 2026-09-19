@@ -102,9 +102,6 @@ function createMovieCard(movie) {
   return `
     <div class="movie-card" data-select="${movie.id}">
       <div class="movie-poster" style="background-image:url('${movie.backdrop_url || movie.poster_url}')">
-        <div class="card-play-overlay">
-          <div class="play-badge"><i class="fas fa-play"></i> Watch</div>
-        </div>
         <div class="card-overlay-actions">
            <button class="btn-suggest" onclick="event.stopPropagation(); suggestMovie(${movie.id}, '${escapedTitle}')" title="Suggest to Pulse">
              <i class="fas fa-paper-plane"></i>

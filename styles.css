@@ -677,40 +677,7 @@ body.pulse-active {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-.card-play-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
 
-.movie-card:hover .card-play-overlay {
-  opacity: 1;
-}
-
-.play-badge {
-  background: var(--accent);
-  color: #000;
-  font-weight: 700;
-  font-size: 0.9rem;
-  padding: 8px 18px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transform: scale(0.9);
-  transition: transform 0.2s ease;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow);
-}
-
-.movie-card:hover .play-badge {
-  transform: scale(1);
-}
 
 .close-modal {
   width: 40px;
